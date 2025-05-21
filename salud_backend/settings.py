@@ -49,9 +49,10 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',  # Django REST Framework
-    'usuarios', 
     'corsheaders', 
-    'rest_framework_simplejwt'
+    'rest_framework_simplejwt',
+    'usuarios.apps.UsuariosConfig'
+
           # Tu aplicación de usuarios
 ]
 
@@ -103,6 +104,7 @@ WSGI_APPLICATION = 'salud_backend.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
+
 
 DATABASES = {
     'default': {
