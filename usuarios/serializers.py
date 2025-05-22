@@ -276,3 +276,14 @@ class MedicamentoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Medicamento
         fields = '__all__'
+
+
+
+class PacienteSerializer(serializers.ModelSerializer):
+    nombre = serializers.CharField(source='id_usuario.nombre')
+    apellido = serializers.CharField(source='id_usuario.apellido')
+    cedula = serializers.CharField(source='id_usuario.cedula')
+
+    class Meta:
+        model = Paciente
+        fields = ['id_paciente', 'nombre', 'apellido', 'cedula', 'id_sangre']

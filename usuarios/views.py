@@ -618,3 +618,27 @@ def listar_medicamentos(request):
     
     serializer = MedicamentoSerializer(medicamentos, many=True)
     return Response(serializer.data)
+
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
+from .models import Paciente, Usuario
+from .serializers import PacienteSerializer
+
+@api_view(['GET'])
+def buscar_paciente_por_cedula(request):
+    cedula = request.GET.get('cedula')
+
+    if not cedula:
+        return Response({"error": "Debe proporcionar una cédula."}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        usuario = Usuario.objects.get(cedula=cedula)
+        paciente = Paciente.objects.get(id_usuario=usuario)
+        serializer = PacienteSerializer(paciente)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    except Usuario.DoesNotExist:
+        return Response({"error": "Usuario con esa cédula no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+    except Paciente.DoesNotExist:
+        return Response({"error": "No hay paciente asociado a ese usuario."}, status=status.HTTP_404_NOT_FOUND)
+
