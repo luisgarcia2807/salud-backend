@@ -108,14 +108,15 @@ WSGI_APPLICATION = 'salud_backend.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',  # Cambiar a PostgreSQL
-        'NAME': 'saludbd',  # Nombre de la base de datos
-        'USER': 'postgres',  # Usuario de PostgreSQL
-        'PASSWORD': 'password',  # Contraseña del usuario
-        'HOST': 'localhost',  # Puede ser otro si tu servidor no está en localhost
-        'PORT': '5432',  # Puerto por defecto de PostgreSQL
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'saludbd',
+        'USER': 'postgress',
+        'PASSWORD': '9HNQT4IfjIqDxYcQysm1V9Y9UzrO9cBG',
+        'HOST': 'dpg-d0o0k9mmcj7s73e02hgg-a.oregon-postgres.render.com',
+        'PORT': '5432',
     }
 }
+
 
 
 # Password validation
@@ -152,7 +153,8 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = 'static/' 
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
