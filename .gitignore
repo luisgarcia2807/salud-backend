@@ -1,0 +1,17 @@
+# Ignorar entorno virtual
+venv/
+env/
+
+# Ignorar archivos compilados de Python
+__pycache__/
+*.pyc
+
+# Ignorar base de datos SQLite si la tienes
+db.sqlite3
+
+# Archivos de sistema (macOS, Windows)
+.DS_Store
+Thumbs.db
+
+# Archivos de configuración de entorno
+*.env
