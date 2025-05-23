@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: salud-backend
+    env: python
+    plan: free
+    buildCommand: |
+      pip install -r requirements.txt
+      python manage.py collectstatic --noinput
+    startCommand: "gunicorn salud_backend.wsgi:application"
+    envVars:
+      - key: DATABASE_URL
+        value: postgresql://postgress:9HNQT4IfjIqDxYcQysm1V9Y9UzrO9cBG@dpg-d0o0k9mmcj7s73e02hgg-a.oregon-postgres.render.com/saludbd
+      - key: DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        generateValue: true
