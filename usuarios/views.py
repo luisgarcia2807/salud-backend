@@ -642,3 +642,41 @@ def buscar_paciente_por_cedula(request):
     except Paciente.DoesNotExist:
         return Response({"error": "No hay paciente asociado a ese usuario."}, status=status.HTTP_404_NOT_FOUND)
 
+
+from rest_framework.decorators import action
+from django.utils.timezone import now
+from .models import DoctorPaciente
+from .serializers import DoctorPacienteSerializer
+
+class DoctorPacienteViewSet(viewsets.ModelViewSet):
+    queryset = DoctorPaciente.objects.all()
+    serializer_class = DoctorPacienteSerializer
+
+    def create(self, request, *args, **kwargs):
+        data = request.data.copy()
+        data['estado'] = 'pendiente'
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'])
+    def aceptar(self, request, pk=None):
+        relacion = self.get_object()
+        if relacion.estado != 'pendiente':
+            return Response({'detail': 'Ya fue respondida.'}, status=400)
+
+        relacion.estado = 'aceptado'
+        relacion.aprobado_en = now()
+        relacion.save()
+        return Response({'detail': 'Solicitud aceptada.'})
+
+    @action(detail=True, methods=['post'])
+    def rechazar(self, request, pk=None):
+        relacion = self.get_object()
+        if relacion.estado != 'pendiente':
+            return Response({'detail': 'Ya fue respondida.'}, status=400)
+
+        relacion.estado = 'rechazado'
+        relacion.save()
+        return Response({'detail': 'Solicitud rechazada.'})

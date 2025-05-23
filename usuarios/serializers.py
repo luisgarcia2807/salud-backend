@@ -287,3 +287,12 @@ class PacienteSerializercedula(serializers.ModelSerializer):
     class Meta:
         model = Paciente
         fields = ['id_paciente', 'nombre', 'apellido', 'cedula', 'id_sangre']
+
+
+from .models import DoctorPaciente
+
+class DoctorPacienteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DoctorPaciente
+        fields = '__all__'
+        read_only_fields = ['estado', 'creado_en', 'aprobado_en']

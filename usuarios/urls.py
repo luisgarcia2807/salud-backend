@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import ActivarDoctorView, AlergiasPorPacienteView, DoctoresActivosInactivosView, EnfermedadPersistenteListView, EnfermedadesPorPacienteView, ExamenLaboratorioView, ExamenlabImagenologiaView, GrupoSanguineoListView, ListaAlergias, MedicamentoCronicoListView, PacienteAlergiaViewSet, PacienteEnfermedadPersistenteViewSet, PacienteMedicamentoCronicoViewSet, PacientePorUsuarioView, SubirDocumentoView, SubirImagenPruebaView, TratamientosCronicosPorPacienteView, UsuarioDetailView, UsuarioViewSet, CustomTokenObtainPairView, CustomTokenRefreshView, VacunaListView, VacunaPacienteViewSet, VacunasPorPacienteView, actualizar_foto_perfil, buscar_paciente_por_cedula, listar_medicamentos, procesar_documento, proxima_dosis, ultimas_dosis_por_paciente
+from .views import ActivarDoctorView, AlergiasPorPacienteView, DoctorPacienteViewSet, DoctoresActivosInactivosView, EnfermedadPersistenteListView, EnfermedadesPorPacienteView, ExamenLaboratorioView, ExamenlabImagenologiaView, GrupoSanguineoListView, ListaAlergias, MedicamentoCronicoListView, PacienteAlergiaViewSet, PacienteEnfermedadPersistenteViewSet, PacienteMedicamentoCronicoViewSet, PacientePorUsuarioView, SubirDocumentoView, SubirImagenPruebaView, TratamientosCronicosPorPacienteView, UsuarioDetailView, UsuarioViewSet, CustomTokenObtainPairView, CustomTokenRefreshView, VacunaListView, VacunaPacienteViewSet, VacunasPorPacienteView, actualizar_foto_perfil, buscar_paciente_por_cedula, listar_medicamentos, procesar_documento, proxima_dosis, ultimas_dosis_por_paciente
 from .views import CentroMedicoListView, EspecialidadListView
 from . import views
 
@@ -11,6 +11,7 @@ router.register(r'pacientes-alergias', PacienteAlergiaViewSet)  # Registrar el v
 router.register(r'vacunas-pacientes', VacunaPacienteViewSet, basename='vacunapaciente')
 router.register(r'pacientes_enfermedades', PacienteEnfermedadPersistenteViewSet, basename='pacienteenfermedad')
 router.register(r'paciente_medicamento_cronico', PacienteMedicamentoCronicoViewSet)
+router.register(r'doctor-paciente', DoctorPacienteViewSet, basename='doctor-paciente')
 
 urlpatterns = [
     path('api/', include(router.urls)),

@@ -422,4 +422,25 @@ class SeguimientoTratamiento(models.Model):
 
     def __str__(self):
         return f"Seguimiento de {self.tratamiento.nombre} - {self.fecha}"
+    
+class DoctorPaciente(models.Model):
+    ESTADO_CHOICES = [
+        ('pendiente', 'Pendiente'),
+        ('aceptado', 'Aceptado'),
+        ('rechazado', 'Rechazado'),
+    ]
+
+    doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE, related_name='solicitudes_enviadas')
+    paciente = models.ForeignKey(Paciente, on_delete=models.CASCADE, related_name='solicitudes_recibidas')
+    comentario = models.TextField(blank=True)
+    estado = models.CharField(max_length=10, choices=ESTADO_CHOICES, default='pendiente')
+    creado_en = models.DateTimeField(auto_now_add=True)
+    aprobado_en = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ('doctor', 'paciente')
+
+    def __str__(self):
+        return f"{self.doctor} -> {self.paciente} ({self.estado})"
+
 
