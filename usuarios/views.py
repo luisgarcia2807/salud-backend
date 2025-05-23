@@ -623,7 +623,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 from .models import Paciente, Usuario
-from .serializers import PacienteSerializer
+from .serializers import PacienteSerializercedula
 
 @api_view(['GET'])
 def buscar_paciente_por_cedula(request):
@@ -635,7 +635,7 @@ def buscar_paciente_por_cedula(request):
     try:
         usuario = Usuario.objects.get(cedula=cedula)
         paciente = Paciente.objects.get(id_usuario=usuario)
-        serializer = PacienteSerializer(paciente)
+        serializer = PacienteSerializercedula(paciente)
         return Response(serializer.data, status=status.HTTP_200_OK)
     except Usuario.DoesNotExist:
         return Response({"error": "Usuario con esa cédula no encontrado."}, status=status.HTTP_404_NOT_FOUND)

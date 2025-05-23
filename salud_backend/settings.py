@@ -12,8 +12,8 @@ ALLOWED_HOSTS = ['*']  # O usa el dominio de tu app en Render
 
 # Archivos estáticos y media
 STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]  # O puedes eliminar si no tienes archivos en /static
+#STATIC_ROOT = BASE_DIR / 'staticfiles'
+#STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]  # O puedes eliminar si no tienes archivos en /static
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

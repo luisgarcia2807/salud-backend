@@ -279,7 +279,7 @@ class MedicamentoSerializer(serializers.ModelSerializer):
 
 
 
-class PacienteSerializer(serializers.ModelSerializer):
+class PacienteSerializercedula(serializers.ModelSerializer):
     nombre = serializers.CharField(source='id_usuario.nombre')
     apellido = serializers.CharField(source='id_usuario.apellido')
     cedula = serializers.CharField(source='id_usuario.cedula')
