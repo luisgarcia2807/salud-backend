@@ -7,7 +7,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Seguridad
 SECRET_KEY = os.environ.get("SECRET_KEY", 'clave-insegura-por-defecto')
-DEBUG = os.environ.get("DEBUG", "False") == "True"
+DEBUG = True
 ALLOWED_HOSTS = ['*']  # O usa el dominio de tu app en Render
 
 # Archivos estáticos y media
