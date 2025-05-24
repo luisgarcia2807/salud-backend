@@ -1,6 +1,6 @@
 from rest_framework import viewsets, serializers, status
 from .models import Alergia, Doctor, DoctorCentro, EnfermedadPersistente, ExamenLabImagenologia, ExamenLaboratorio, GrupoSanguineo, MedicamentoCronico, Paciente, PacienteAlergia, PacienteEnfermedadPersistente, PacienteMedicamentoCronico, RegistroVacuna, Usuario, Vacuna
-from .serializers import AlergiaSerializer, DoctorSerializer, DocumentoEscaneadoSerializer, EnfermedadPersistenteSerializer, ExamenImagenologiaSerializer, ExamenLaboratorioSerializer, GrupoSanguineoSerializer, MedicamentoCronicoSerializer, PacienteAlergiaSerializer, PacienteEnfermedadPersistenteSerializer, PacienteMedicamentoCronicoSerializer, PacienteSerializer, RegistroVacunaSerializer, UsuarioSerializer, VacunaSerializer
+from .serializers import AlergiaSerializer, DoctorPacienteDetalleSerializer, DoctorSerializer, DocumentoEscaneadoSerializer, EnfermedadPersistenteSerializer, ExamenImagenologiaSerializer, ExamenLaboratorioSerializer, GrupoSanguineoSerializer, MedicamentoCronicoSerializer, PacienteAlergiaSerializer, PacienteEnfermedadPersistenteSerializer, PacienteMedicamentoCronicoSerializer, PacienteSerializer, RegistroVacunaSerializer, UsuarioSerializer, VacunaSerializer
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django.contrib.auth import authenticate
@@ -680,3 +680,18 @@ class DoctorPacienteViewSet(viewsets.ModelViewSet):
         relacion.estado = 'rechazado'
         relacion.save()
         return Response({'detail': 'Solicitud rechazada.'})
+
+
+class SolicitudesPorDoctorAPIView(APIView):
+    def get(self, request, doctor_id):
+        solicitudes = DoctorPaciente.objects.filter(doctor_id=doctor_id)
+        serializer = DoctorPacienteDetalleSerializer(solicitudes, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+class SolicitudesPorPacienteAPIView(APIView):
+    def get(self, request, paciente_id):
+        solicitudes = DoctorPaciente.objects.filter(paciente_id=paciente_id)
+        serializer = DoctorPacienteDetalleSerializer(solicitudes, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)

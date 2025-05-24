@@ -296,3 +296,45 @@ class DoctorPacienteSerializer(serializers.ModelSerializer):
         model = DoctorPaciente
         fields = '__all__'
         read_only_fields = ['estado', 'creado_en', 'aprobado_en']
+
+from rest_framework import serializers
+from .models import DoctorPaciente
+
+class DoctorPacienteDetalleSerializer(serializers.ModelSerializer):
+    paciente_nombre = serializers.CharField(
+        source='paciente.id_usuario.nombre', read_only=True
+    )
+    paciente_apellido = serializers.CharField(
+        source='paciente.id_usuario.apellido', read_only=True
+    )
+    paciente_cedula = serializers.CharField(
+        source='paciente.id_usuario.cedula', read_only=True
+    )
+
+    doctor_nombre = serializers.CharField(
+        source='doctor.id_usuario.nombre', read_only=True
+    )
+    doctor_apellido = serializers.CharField(
+        source='doctor.id_usuario.apellido', read_only=True
+    )
+    doctor_cedula = serializers.CharField(
+        source='doctor.id_usuario.cedula', read_only=True
+    )
+
+    class Meta:
+        model = DoctorPaciente
+        fields = [
+            'id',
+            'comentario',
+            'estado',
+            'creado_en',
+            'aprobado_en',
+            'doctor',
+            'paciente',
+            'paciente_nombre',
+            'paciente_apellido',
+            'paciente_cedula',
+            'doctor_nombre',
+            'doctor_apellido',
+            'doctor_cedula',
+        ]

@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import ActivarDoctorView, AlergiasPorPacienteView, DoctorPacienteViewSet, DoctoresActivosInactivosView, EnfermedadPersistenteListView, EnfermedadesPorPacienteView, ExamenLaboratorioView, ExamenlabImagenologiaView, GrupoSanguineoListView, ListaAlergias, MedicamentoCronicoListView, PacienteAlergiaViewSet, PacienteEnfermedadPersistenteViewSet, PacienteMedicamentoCronicoViewSet, PacientePorUsuarioView, SubirDocumentoView, SubirImagenPruebaView, TratamientosCronicosPorPacienteView, UsuarioDetailView, UsuarioViewSet, CustomTokenObtainPairView, CustomTokenRefreshView, VacunaListView, VacunaPacienteViewSet, VacunasPorPacienteView, actualizar_foto_perfil, buscar_paciente_por_cedula, listar_medicamentos, procesar_documento, proxima_dosis, ultimas_dosis_por_paciente
+from .views import ActivarDoctorView, AlergiasPorPacienteView, DoctorPacienteViewSet, DoctoresActivosInactivosView, EnfermedadPersistenteListView, EnfermedadesPorPacienteView, ExamenLaboratorioView, ExamenlabImagenologiaView, GrupoSanguineoListView, ListaAlergias, MedicamentoCronicoListView, PacienteAlergiaViewSet, PacienteEnfermedadPersistenteViewSet, PacienteMedicamentoCronicoViewSet, PacientePorUsuarioView, SolicitudesPorDoctorAPIView, SolicitudesPorPacienteAPIView, SubirDocumentoView, SubirImagenPruebaView, TratamientosCronicosPorPacienteView, UsuarioDetailView, UsuarioViewSet, CustomTokenObtainPairView, CustomTokenRefreshView, VacunaListView, VacunaPacienteViewSet, VacunasPorPacienteView, actualizar_foto_perfil, buscar_paciente_por_cedula, listar_medicamentos, procesar_documento, proxima_dosis, ultimas_dosis_por_paciente
 from .views import CentroMedicoListView, EspecialidadListView
 from . import views
 
@@ -49,6 +49,9 @@ urlpatterns = [
     path('api/medicamentosfrecuente/', listar_medicamentos),
     path('api/tratamiento/<int:tratamiento_id>/seguimientos/', views.obtener_seguimientos),
     path('api/paciente/por-cedula/', buscar_paciente_por_cedula),
+    path('api/solicitudes/doctor/<int:doctor_id>/', SolicitudesPorDoctorAPIView.as_view()),
+    path('api/solicitudes/paciente/<int:paciente_id>/', SolicitudesPorPacienteAPIView.as_view()),
+   
 
 
 

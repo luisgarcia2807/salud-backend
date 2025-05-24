@@ -24,15 +24,10 @@ class Usuario(AbstractUser):
     telefono = models.CharField(max_length=15)
     estado = models.BooleanField(default=True)
     id_rol = models.ForeignKey('Rol', on_delete=models.CASCADE)
+    foto_perfil = models.ImageField(upload_to='fotos_perfil/', null=True, blank=True)
 
     is_active = models.BooleanField(default=True)
 
-    foto_perfil = models.ImageField(
-        upload_to='fotos_perfil/',
-        null=True,
-        blank=True
-    )
-
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username', 'telefono']
 
@@ -43,32 +38,7 @@ class Usuario(AbstractUser):
 
     def __str__(self):
         return f"{self.nombre} {self.apellido}"
-
-    id_usuario = models.AutoField(primary_key=True)
-    nombre = models.CharField(max_length=100)
-    apellido = models.CharField(max_length=100)
-    cedula = models.CharField(max_length=20, unique=True)
-    email = models.EmailField(max_length=255, unique=True)
-    fecha_nacimiento = models.DateField(null=True, blank=True)
-    telefono = models.CharField(max_length=15)
-    estado = models.BooleanField(default=True)
-    id_rol = models.ForeignKey('Rol', on_delete=models.CASCADE)
-    
-
-    # Agregar campo is_active
-    is_active = models.BooleanField(default=True)  # Este campo controla si el usuario está activo o no
-
-    USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['username', 'telefono']
-
-    def save(self, *args, **kwargs):
-        if not self.pk and self.password:
-            self.set_password(self.password)
-        super().save(*args, **kwargs)
-
-    def __str__(self):
-        return f"{self.nombre} {self.apellido}"
-    
+ 
 
 class GrupoSanguineo(models.Model):
     id_sangre = models.AutoField(primary_key=True)  # Coincide con SERIAL
