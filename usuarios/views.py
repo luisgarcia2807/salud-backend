@@ -150,12 +150,17 @@ class PacienteAlergiaViewSet(viewsets.ModelViewSet):
 
 class AlergiasPorPacienteView(APIView):
     def get(self, request, id_paciente):
-        alergias = PacienteAlergia.objects.filter(paciente_id=id_paciente).select_related('alergia','doctor_aprobador__id_usuario')
-        
+        tipo = request.query_params.get('tipo')  # Ejemplo: tipo=alimentaria
+
+        alergias = PacienteAlergia.objects.filter(paciente_id=id_paciente).select_related('alergia', 'doctor_aprobador__id_usuario')
+
+        if tipo:
+            alergias = alergias.filter(alergia__tipo=tipo)  # el tipo debe coincidir con el valor interno del Enum
+
         resultados = []
         for a in alergias:
             resultados.append({
-                'id': a.id, 
+                'id': a.id,
                 'nombre_alergia': a.alergia.nombre,
                 'tipo_alergia': a.alergia.get_tipo_display(),
                 'gravedad': a.get_gravedad_display(),
@@ -165,11 +170,9 @@ class AlergiasPorPacienteView(APIView):
                     f"{a.doctor_aprobador.id_usuario.nombre} {a.doctor_aprobador.id_usuario.apellido}"
                     if a.doctor_aprobador else None
                 )
-
             })
 
         return Response(resultados, status=status.HTTP_200_OK)
-    
 class VacunaListView(APIView):
     def get(self, request):
         vacunas = Vacuna.objects.all()  # Obtener todas las vacunas
