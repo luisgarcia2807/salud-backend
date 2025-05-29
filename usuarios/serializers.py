@@ -143,19 +143,26 @@ class VacunaSerializer(serializers.ModelSerializer):
 
 
 from rest_framework import serializers
-from .models import RegistroVacuna  # o VacunaPaciente si dejaste el modelo anterior
+from .models import RegistroVacuna
+
 class RegistroVacunaSerializer(serializers.ModelSerializer):
     class Meta:
         model = RegistroVacuna
         fields = '__all__'
 
     def validate(self, data):
-        paciente = data.get('paciente')
-        vacuna = data.get('vacuna')
-        dosis = data.get('dosis')
+        # Tomamos los valores existentes si no se pasan en el PATCH
+        paciente = data.get('paciente', getattr(self.instance, 'paciente', None))
+        vacuna = data.get('vacuna', getattr(self.instance, 'vacuna', None))
+        dosis = data.get('dosis', getattr(self.instance, 'dosis', None))
 
-        # Verificar si ya tiene esa misma dosis registrada
-        if RegistroVacuna.objects.filter(paciente=paciente, vacuna=vacuna, dosis=dosis).exists():
+        # Si no se está modificando ninguno de estos campos, omite validación de dosis
+        if self.instance and not any(campo in data for campo in ['paciente', 'vacuna', 'dosis']):
+            return data
+
+        # Verificar si ya tiene esa misma dosis registrada (excluyendo este mismo registro si es PATCH)
+        if RegistroVacuna.objects.exclude(id=getattr(self.instance, 'id', None))\
+            .filter(paciente=paciente, vacuna=vacuna, dosis=dosis).exists():
             raise serializers.ValidationError(f"El paciente ya tiene registrada la dosis {dosis} de esta vacuna.")
 
         # Validar que no se exceda la dosis máxima

@@ -458,17 +458,26 @@ def procesar_documento(request):
     _, jpeg = cv2.imencode('.jpg', result)
     return HttpResponse(jpeg.tobytes(), content_type="image/jpeg")
 
-# views.py
+
 from rest_framework.decorators import api_view
 
 
 @api_view(['GET'])
 def proxima_dosis(request, paciente_id, vacuna_id):
+    try:
+        vacuna = Vacuna.objects.get(id=vacuna_id)
+    except Vacuna.DoesNotExist:
+        return Response({"detail": "Vacuna no encontrada."}, status=status.HTTP_404_NOT_FOUND)
+
     registros = RegistroVacuna.objects.filter(paciente_id=paciente_id, vacuna_id=vacuna_id).order_by('dosis')
+
     if registros.exists():
         ultima_dosis = registros.last().dosis
-        return Response({"proxima_dosis": ultima_dosis + 1})
-    return Response({"proxima_dosis": 1})
+        if ultima_dosis >= vacuna.max_dosis:
+            return Response({"detail": "Ya se han aplicado todas las dosis."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"proxima_dosis": ultima_dosis + 1}, status=status.HTTP_200_OK)
+    
+    return Response({"proxima_dosis": 1}, status=status.HTTP_200_OK)
 
 
 
