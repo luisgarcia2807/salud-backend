@@ -129,7 +129,15 @@ class PacientePorUsuarioView(APIView):
             return Response({"detail": "No se encontró paciente asociado a ese usuario."}, status=status.HTTP_404_NOT_FOUND)
         
 
-
+class UsuarioPorPacienteView(APIView):
+    def get(self, request, id_paciente):
+        try:
+            paciente = Paciente.objects.select_related('id_usuario').get(id_paciente=id_paciente)
+            id_usuario = paciente.id_usuario.id_usuario  # ← importante: este es el campo de tu modelo
+            return Response({"id_usuario": id_usuario}, status=status.HTTP_200_OK)
+        except Paciente.DoesNotExist:
+            return Response({"detail": "Paciente no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+        
 class ListaAlergias(APIView):
     def get(self, request):
         tipo = request.GET.get('tipo', None)  # Obtiene el parámetro 'tipo' de la URL
@@ -692,9 +700,20 @@ class SolicitudesPorDoctorAPIView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-
 class SolicitudesPorPacienteAPIView(APIView):
     def get(self, request, paciente_id):
         solicitudes = DoctorPaciente.objects.filter(paciente_id=paciente_id)
         serializer = DoctorPacienteDetalleSerializer(solicitudes, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+from .serializers import DoctorSerializer
+
+class DoctorPorUsuarioView(APIView):
+    def get(self, request, id_usuario):
+        try:
+            doctor = Doctor.objects.get(id_usuario__id_usuario=id_usuario)
+            serializer = DoctorSerializer(doctor)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Doctor.DoesNotExist:
+            return Response({'error': 'Doctor no encontrado'}, status=status.HTTP_404_NOT_FOUND)
