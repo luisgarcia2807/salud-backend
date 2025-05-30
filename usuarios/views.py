@@ -593,7 +593,7 @@ def actualizar_tratamiento(request, pk):
         return Response({'error': 'Tratamiento no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
 
     # Solo permitimos actualizar doctor, fecha_fin y frecuencia
-    campos_permitidos = ['doctor', 'fecha_fin', 'frecuencia']
+    campos_permitidos = ['doctor', 'fecha_fin', 'frecuencia','descripcion']
     data_actualizada = {campo: valor for campo, valor in request.data.items() if campo in campos_permitidos}
 
     serializer = TratamientoActualSerializer(tratamiento, data=data_actualizada, partial=True)
