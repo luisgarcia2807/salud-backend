@@ -585,6 +585,22 @@ def crear_tratamiento(request):
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+@api_view(['PATCH'])
+def actualizar_tratamiento(request, pk):
+    try:
+        tratamiento = TratamientoActual.objects.get(pk=pk)
+    except TratamientoActual.DoesNotExist:
+        return Response({'error': 'Tratamiento no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Solo permitimos actualizar doctor, fecha_fin y frecuencia
+    campos_permitidos = ['doctor', 'fecha_fin', 'frecuencia']
+    data_actualizada = {campo: valor for campo, valor in request.data.items() if campo in campos_permitidos}
+
+    serializer = TratamientoActualSerializer(tratamiento, data=data_actualizada, partial=True)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['PATCH'])
 def finalizar_tratamiento(request, tratamiento_id):

@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import ActivarDoctorView, AlergiasPorPacienteView, DoctorPacienteViewSet, DoctorPorUsuarioView, DoctoresActivosInactivosView, EnfermedadPersistenteListView, EnfermedadesPorPacienteView, ExamenLaboratorioView, ExamenlabImagenologiaView, GrupoSanguineoListView, ListaAlergias, MedicamentoCronicoListView, PacienteAlergiaViewSet, PacienteEnfermedadPersistenteViewSet, PacienteMedicamentoCronicoViewSet, PacientePorUsuarioView, SolicitudesPorDoctorAPIView, SolicitudesPorPacienteAPIView, SubirDocumentoView, SubirImagenPruebaView, TratamientosCronicosPorPacienteView, UsuarioDetailView, UsuarioPorPacienteView, UsuarioViewSet, CustomTokenObtainPairView, CustomTokenRefreshView, VacunaListView, VacunaPacienteViewSet, VacunasPorPacienteView, actualizar_foto_perfil, buscar_paciente_por_cedula, listar_medicamentos, procesar_documento, proxima_dosis, ultimas_dosis_por_paciente
+from .views import ActivarDoctorView, AlergiasPorPacienteView, DoctorPacienteViewSet, DoctorPorUsuarioView, DoctoresActivosInactivosView, EnfermedadPersistenteListView, EnfermedadesPorPacienteView, ExamenLaboratorioView, ExamenlabImagenologiaView, GrupoSanguineoListView, ListaAlergias, MedicamentoCronicoListView, PacienteAlergiaViewSet, PacienteEnfermedadPersistenteViewSet, PacienteMedicamentoCronicoViewSet, PacientePorUsuarioView, SolicitudesPorDoctorAPIView, SolicitudesPorPacienteAPIView, SubirDocumentoView, SubirImagenPruebaView, TratamientosCronicosPorPacienteView, UsuarioDetailView, UsuarioPorPacienteView, UsuarioViewSet, CustomTokenObtainPairView, CustomTokenRefreshView, VacunaListView, VacunaPacienteViewSet, VacunasPorPacienteView, actualizar_foto_perfil, actualizar_tratamiento, buscar_paciente_por_cedula, listar_medicamentos, procesar_documento, proxima_dosis, ultimas_dosis_por_paciente
 from .views import CentroMedicoListView, EspecialidadListView
 from . import views
 
@@ -45,6 +45,7 @@ urlpatterns = [
     path('api/paciente/<int:paciente_id>/tratamientos/', views.tratamientos_por_paciente),
     path('api/tratamiento/nuevo/', views.crear_tratamiento),
     path('api/tratamiento/<int:tratamiento_id>/finalizar/', views.finalizar_tratamiento),
+    path('api/tratamientos/<int:pk>/actualizar/', actualizar_tratamiento, name='actualizar_tratamiento'),
     path('api/tratamiento/seguimiento/nuevo/', views.agregar_seguimiento),
     path('api/medicamentosfrecuente/', listar_medicamentos),
     path('api/tratamiento/<int:tratamiento_id>/seguimientos/', views.obtener_seguimientos),
