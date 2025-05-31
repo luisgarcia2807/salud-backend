@@ -238,16 +238,25 @@ class PacienteEnfermedadPersistenteViewSet(viewsets.ModelViewSet):
     serializer_class = PacienteEnfermedadPersistenteSerializer  # Usa el serializador de PacienteEnfermedadPersistente
 
 
+
+
 class EnfermedadesPorPacienteView(APIView):
     def get(self, request, id_paciente):
-        enfermedades = PacienteEnfermedadPersistente.objects.filter(paciente_id=id_paciente).select_related('enfermedad','doctor_aprobador__id_usuario')
-        
+        tipo_param = request.query_params.get('tipo')  # Captura el tipo desde la URL
+
+        enfermedades = PacienteEnfermedadPersistente.objects.filter(
+            paciente_id=id_paciente
+        ).select_related('enfermedad', 'doctor_aprobador__id_usuario')
+
+        if tipo_param:
+            enfermedades = enfermedades.filter(enfermedad__tipo=tipo_param)
+
         resultados = []
         for e in enfermedades:
             resultados.append({
-                'id': e.id, 
+                'id': e.id,
                 'nombre_enfermedad': e.enfermedad.nombre,
-                'Tipo_enfermedad':e.enfermedad.get_tipo_display(),
+                'Tipo_enfermedad': e.enfermedad.get_tipo_display(),
                 'fecha_diagnostico': e.fecha_diagnostico,
                 'observacion': e.observacion,
                 'aprobado': e.aprobado,
