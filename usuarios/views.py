@@ -394,18 +394,42 @@ class SubirDocumentoView(APIView):
     
 
 
+from rest_framework.views import APIView
+from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.response import Response
+from rest_framework import status
+from .serializers import ExamenLaboratorioSerializer
+from .models import ExamenLaboratorio
+from .supabase_config import supabase
+
+
 class ExamenLaboratorioView(APIView):
-    def post(self, request):
-        serializer = ExamenLaboratorioSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    parser_classes = (MultiPartParser, FormParser)
 
     def get(self, request, paciente_id):
-        examenes = ExamenLaboratorio.objects.filter(paciente_id=paciente_id).order_by('-fecha_realizacion')
+        # Buscar los exámenes del paciente con ese ID
+        examenes = ExamenLaboratorio.objects.filter(paciente_id=paciente_id)
         serializer = ExamenLaboratorioSerializer(examenes, many=True)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        archivo = request.FILES.get('archivo')
+        if archivo:
+            contenido = archivo.read()
+            ruta = f"examenes/{archivo.name}"
+            supabase.storage.from_("examenes").upload(ruta, contenido, {"content-type": archivo.content_type})
+            url_publica = supabase.storage.from_("examenes").get_public_url(ruta)
+
+            data = request.data.dict()
+            data["archivo"] = url_publica
+
+            serializer = ExamenLaboratorioSerializer(data=data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({"error": "Archivo no recibido"}, status=400)
     
 class ExamenlabImagenologiaView(APIView):
     def post(self, request):
@@ -751,3 +775,30 @@ class DoctorPorUsuarioView(APIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Doctor.DoesNotExist:
             return Response({'error': 'Doctor no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+from rest_framework.views import APIView
+from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.response import Response
+from .supabase_config import supabase
+
+class SubirArchivoSupabase(APIView):
+    parser_classes = (MultiPartParser, FormParser)
+
+    def post(self, request, *args, **kwargs):
+        archivo = request.FILES.get('archivo')
+
+        if archivo:
+            # Lee el archivo y lo sube al bucket correcto
+            contenido = archivo.read()
+            ruta = f"{archivo.name}"
+
+            # Usa el bucket correcto: "examenes"
+            supabase.storage.from_("examenes").upload(ruta, contenido, {"content-type": archivo.content_type})
+            url_publica = supabase.storage.from_("examenes").get_public_url(ruta)
+
+            return Response({
+                "mensaje": "Archivo subido correctamente",
+                "url": url_publica
+            })
+        
+        return Response({"error": "No se envió archivo"}, status=400)

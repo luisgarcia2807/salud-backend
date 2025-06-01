@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import ActivarDoctorView, AlergiasPorPacienteView, DoctorPacienteViewSet, DoctorPorUsuarioView, DoctoresActivosInactivosView, EnfermedadPersistenteListView, EnfermedadesPorPacienteView, ExamenLaboratorioView, ExamenlabImagenologiaView, GrupoSanguineoListView, ListaAlergias, MedicamentoCronicoListView, PacienteAlergiaViewSet, PacienteEnfermedadPersistenteViewSet, PacienteMedicamentoCronicoViewSet, PacientePorUsuarioView, SolicitudesPorDoctorAPIView, SolicitudesPorPacienteAPIView, SubirDocumentoView, SubirImagenPruebaView, TratamientosCronicosPorPacienteView, UsuarioDetailView, UsuarioPorPacienteView, UsuarioViewSet, CustomTokenObtainPairView, CustomTokenRefreshView, VacunaListView, VacunaPacienteViewSet, VacunasPorPacienteView, actualizar_foto_perfil, actualizar_tratamiento, buscar_paciente_por_cedula, listar_medicamentos, procesar_documento, proxima_dosis, ultimas_dosis_por_paciente
+from .views import ActivarDoctorView, AlergiasPorPacienteView, DoctorPacienteViewSet, DoctorPorUsuarioView, DoctoresActivosInactivosView, EnfermedadPersistenteListView, EnfermedadesPorPacienteView, ExamenLaboratorioView, ExamenlabImagenologiaView, GrupoSanguineoListView, ListaAlergias, MedicamentoCronicoListView, PacienteAlergiaViewSet, PacienteEnfermedadPersistenteViewSet, PacienteMedicamentoCronicoViewSet, PacientePorUsuarioView, SolicitudesPorDoctorAPIView, SolicitudesPorPacienteAPIView, SubirArchivoSupabase, SubirDocumentoView, SubirImagenPruebaView, TratamientosCronicosPorPacienteView, UsuarioDetailView, UsuarioPorPacienteView, UsuarioViewSet, CustomTokenObtainPairView, CustomTokenRefreshView, VacunaListView, VacunaPacienteViewSet, VacunasPorPacienteView, actualizar_foto_perfil, actualizar_tratamiento, buscar_paciente_por_cedula, listar_medicamentos, procesar_documento, proxima_dosis, ultimas_dosis_por_paciente
 from .views import CentroMedicoListView, EspecialidadListView
 from . import views
 
@@ -35,6 +35,7 @@ urlpatterns = [
     path('api/medicamentos/', MedicamentoCronicoListView.as_view(), name='medicamentos_list'),
     path('api/tratamientos-cronicos/<int:id_paciente>/', TratamientosCronicosPorPacienteView.as_view(), name='tratamientos_cronicos_por_paciente'),
     path('api/subir-pdf/', SubirDocumentoView.as_view(), name='subir-pdf'),
+    path('api/subir-archivosupa/', SubirArchivoSupabase.as_view(), name='subir-archivo'),
     path('api/examenes/', ExamenLaboratorioView.as_view(), name='subir_examen'),
     path('api/examenes/<int:paciente_id>/', ExamenLaboratorioView.as_view(), name='listar_examenes_paciente'),
     path('api/procesar_documento/', procesar_documento, name='procesar_documento'),

@@ -326,7 +326,7 @@ class ExamenLaboratorio(models.Model):
     nombre_examen = models.CharField(max_length=100)
     descripcion = models.TextField(blank=True, null=True)
     fecha_realizacion = models.DateField()
-    archivo = models.FileField(upload_to=ruta_archivo_examen)
+    archivo = models.URLField(max_length=500)
     fecha_subida = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
