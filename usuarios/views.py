@@ -802,3 +802,66 @@ class SubirArchivoSupabase(APIView):
             })
         
         return Response({"error": "No se envió archivo"}, status=400)
+    
+
+
+class DiagnosticoIAOpenRouter(APIView):
+    def post(self, request):
+        texto = request.data.get('texto')
+        if not texto:
+            return Response({'error': 'No se proporcionó el texto del examen'}, status=400)
+
+        # Instrucción para la IA
+        prompt = f"""
+Eres un médico experto. Analiza el siguiente texto de un examen médico y proporciona un diagnóstico preliminar claro, técnico y preciso:
+
+{texto}
+"""
+
+        try:
+            response = requests.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={
+                    "Authorization": "Bearer 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",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "meta-llama/llama-3-8b-instruct",  # Puedes cambiar por otro gratuito si prefieres
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.7
+                }
+            )
+            data = response.json()
+            resultado = data['choices'][0]['message']['content']
+            return Response({
+                "mensaje": "Diagnóstico generado con éxito",
+                "diagnostico": resultado
+            })
+
+        except Exception as e:
+            return Response({'error': str(e)}, status=500)
+
+from rest_framework import viewsets, permissions, serializers
+from .models import SignosVitales, Paciente
+from .serializers import SignosVitalesSerializer
+
+class SignosVitalesViewSet(viewsets.ModelViewSet):
+    serializer_class = SignosVitalesSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        paciente_id = self.request.query_params.get('paciente_id')
+        if paciente_id:
+            return SignosVitales.objects.filter(paciente__id_paciente=paciente_id).order_by('-fecha')
+        return SignosVitales.objects.all().order_by('-fecha')
+
+
+
+    def perform_create(self, serializer):
+        paciente_id = self.request.data.get('paciente')
+        try:
+            paciente = Paciente.objects.get(id_paciente=paciente_id)
+        except Paciente.DoesNotExist:
+            raise serializers.ValidationError("Paciente no válido.")
+        
+        serializer.save(paciente=paciente)

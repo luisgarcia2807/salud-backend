@@ -414,3 +414,30 @@ class DoctorPaciente(models.Model):
         return f"{self.doctor} -> {self.paciente} ({self.estado})"
 
 
+
+
+class SignosVitales(models.Model):
+    paciente = models.ForeignKey(Paciente, on_delete=models.CASCADE, related_name='signos_vitales')
+    fecha = models.DateTimeField(auto_now_add=True)
+
+    peso = models.FloatField(help_text="Peso en kg", null=True, blank=True)
+    altura = models.FloatField(help_text="Talla en metros", null=True, blank=True)
+
+    presion_sistolica = models.IntegerField(null=True, blank=True)
+    presion_diastolica = models.IntegerField(null=True, blank=True)
+
+    frecuencia_cardiaca = models.IntegerField(help_text="lpm", null=True, blank=True)
+    frecuencia_respiratoria = models.IntegerField(help_text="rpm", null=True, blank=True)
+    temperatura = models.FloatField(help_text="°C", null=True, blank=True)
+    spo2 = models.IntegerField(help_text="Saturación de oxígeno %", null=True, blank=True)
+    glucosa = models.IntegerField(help_text="mg/dL", null=True, blank=True)
+
+    observaciones = models.TextField(blank=True, help_text="Comentario opcional del médico")
+
+    def imc(self):
+        if self.peso and self.altura:
+            return round(self.peso / (self.altura ** 2), 2)
+        return None
+
+    def __str__(self):
+        return f"Signos vitales de {self.paciente} - {self.fecha.strftime('%Y-%m-%d %H:%M')}"

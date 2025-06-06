@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import ActivarDoctorView, AlergiasPorPacienteView, DoctorPacienteViewSet, DoctorPorUsuarioView, DoctoresActivosInactivosView, EnfermedadPersistenteListView, EnfermedadesPorPacienteView, ExamenLaboratorioView, ExamenlabImagenologiaView, GrupoSanguineoListView, ListaAlergias, MedicamentoCronicoListView, PacienteAlergiaViewSet, PacienteEnfermedadPersistenteViewSet, PacienteMedicamentoCronicoViewSet, PacientePorUsuarioView, SolicitudesPorDoctorAPIView, SolicitudesPorPacienteAPIView, SubirArchivoSupabase, SubirDocumentoView, SubirImagenPruebaView, TratamientosCronicosPorPacienteView, UsuarioDetailView, UsuarioPorPacienteView, UsuarioViewSet, CustomTokenObtainPairView, CustomTokenRefreshView, VacunaListView, VacunaPacienteViewSet, VacunasPorPacienteView, actualizar_foto_perfil, actualizar_tratamiento, buscar_paciente_por_cedula, listar_medicamentos, procesar_documento, proxima_dosis, ultimas_dosis_por_paciente
+from .views import ActivarDoctorView, AlergiasPorPacienteView, DiagnosticoIAOpenRouter, DoctorPacienteViewSet, DoctorPorUsuarioView, DoctoresActivosInactivosView, EnfermedadPersistenteListView, EnfermedadesPorPacienteView, ExamenLaboratorioView, ExamenlabImagenologiaView, GrupoSanguineoListView, ListaAlergias, MedicamentoCronicoListView, PacienteAlergiaViewSet, PacienteEnfermedadPersistenteViewSet, PacienteMedicamentoCronicoViewSet, PacientePorUsuarioView, SignosVitalesViewSet, SolicitudesPorDoctorAPIView, SolicitudesPorPacienteAPIView, SubirArchivoSupabase, SubirDocumentoView, SubirImagenPruebaView, TratamientosCronicosPorPacienteView, UsuarioDetailView, UsuarioPorPacienteView, UsuarioViewSet, CustomTokenObtainPairView, CustomTokenRefreshView, VacunaListView, VacunaPacienteViewSet, VacunasPorPacienteView, actualizar_foto_perfil, actualizar_tratamiento, buscar_paciente_por_cedula, listar_medicamentos, procesar_documento, proxima_dosis, ultimas_dosis_por_paciente
 from .views import CentroMedicoListView, EspecialidadListView
 from . import views
 
@@ -12,6 +12,7 @@ router.register(r'vacunas-pacientes', VacunaPacienteViewSet, basename='vacunapac
 router.register(r'pacientes_enfermedades', PacienteEnfermedadPersistenteViewSet, basename='pacienteenfermedad')
 router.register(r'paciente_medicamento_cronico', PacienteMedicamentoCronicoViewSet)
 router.register(r'doctor-paciente', DoctorPacienteViewSet, basename='doctor-paciente')
+router.register(r'signos_vitales', SignosVitalesViewSet, basename='signos_vitales')
 
 urlpatterns = [
     path('api/', include(router.urls)),
@@ -55,9 +56,7 @@ urlpatterns = [
     path('api/solicitudes/paciente/<int:paciente_id>/', SolicitudesPorPacienteAPIView.as_view()),
     path('api/usuario-desde-paciente/<int:id_paciente>/', UsuarioPorPacienteView.as_view()),
     path('api/doctores/por-usuario/<int:id_usuario>/', DoctorPorUsuarioView.as_view(), name='doctor-por-usuario'),
-
-
-   
+    path('api/analizar-texto/', DiagnosticoIAOpenRouter.as_view()),
 
 
 

@@ -345,3 +345,32 @@ class DoctorPacienteDetalleSerializer(serializers.ModelSerializer):
             'doctor_apellido',
             'doctor_cedula',
         ]
+
+from .models import SignosVitales
+
+class SignosVitalesSerializer(serializers.ModelSerializer):
+    imc = serializers.SerializerMethodField()
+    paciente = serializers.PrimaryKeyRelatedField(queryset=Paciente.objects.all())
+
+    class Meta:
+        model = SignosVitales
+        fields = [
+            'id', 'paciente', 'fecha', 'peso', 'altura',
+            'presion_sistolica', 'presion_diastolica',
+            'frecuencia_cardiaca', 'frecuencia_respiratoria',
+            'temperatura', 'spo2', 'glucosa', 'observaciones', 'imc'
+        ]
+        read_only_fields = ['id', 'fecha', 'imc']
+
+    def get_imc(self, obj):
+        return obj.imc()
+
+    def validate(self, data):
+        campos_vitales = [
+            'peso', 'altura', 'presion_sistolica', 'presion_diastolica',
+            'frecuencia_cardiaca', 'frecuencia_respiratoria',
+            'temperatura', 'spo2', 'glucosa'
+        ]
+        if not any(data.get(campo) is not None for campo in campos_vitales):
+            raise serializers.ValidationError("Debe registrar al menos un signo vital.")
+        return data
