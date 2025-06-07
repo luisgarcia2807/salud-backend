@@ -321,6 +321,7 @@ class ExamenLaboratorio(models.Model):
     ]
 
     paciente = models.ForeignKey('Paciente', on_delete=models.CASCADE, related_name='examenes_laboratorio')
+    doctor = models.ForeignKey(Doctor, on_delete=models.SET_NULL, null=True, blank=True, related_name='examenes_subidos')  # NUEVO CAMPO
     tipo = models.CharField(max_length=50, choices=TIPO_CHOICES)
     categoria = models.CharField(max_length=50, choices=CATEGORIA_CHOICES)
     nombre_examen = models.CharField(max_length=100)
@@ -412,8 +413,6 @@ class DoctorPaciente(models.Model):
 
     def __str__(self):
         return f"{self.doctor} -> {self.paciente} ({self.estado})"
-
-
 
 
 class SignosVitales(models.Model):
