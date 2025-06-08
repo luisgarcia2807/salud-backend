@@ -39,6 +39,7 @@ urlpatterns = [
     path('api/subir-archivosupa/', SubirArchivoSupabase.as_view(), name='subir-archivo'),
     path('api/examenes/', ExamenLaboratorioView.as_view(), name='subir_examen'),
     path('api/examenes/<int:paciente_id>/', ExamenLaboratorioView.as_view(), name='listar_examenes_paciente'),
+    path('api/examenes/eliminar/<int:examen_id>/', ExamenLaboratorioView.as_view()),
     path('api/procesar_documento/', procesar_documento, name='procesar_documento'),
     path('api/imagenologia/', ExamenlabImagenologiaView.as_view(), name='subir_examen'),
     path('api/imagenologia/<int:paciente_id>/', ExamenlabImagenologiaView.as_view(), name='listar_examenes_paciente'),

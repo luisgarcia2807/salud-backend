@@ -449,6 +449,14 @@ class ExamenLaboratorioView(APIView):
 
         return Response({"error": "Archivo no recibido"}, status=400)
     
+    def delete(self, request, examen_id):
+        try:
+            examen = ExamenLaboratorio.objects.get(id=examen_id)
+            examen.delete()
+            return Response({"mensaje": "Examen eliminado correctamente"}, status=status.HTTP_204_NO_CONTENT)
+        except ExamenLaboratorio.DoesNotExist:
+            return Response({"error": "Examen no encontrado"}, status=status.HTTP_404_NOT_FOUND)
+    
 class ExamenlabImagenologiaView(APIView):
     def post(self, request):
         serializer = ExamenImagenologiaSerializer(data=request.data)
