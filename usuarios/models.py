@@ -340,14 +340,17 @@ def ruta_archivo_imagenologia(instance, filename):
     return os.path.join(f"examenes_imagenologia/{tipo}/{categoria}", filename)
 
 class ExamenLabImagenologia(models.Model):
-    
     paciente = models.ForeignKey(Paciente, on_delete=models.CASCADE, related_name='examenes_imagenologia')
+    doctor = models.ForeignKey(Doctor, on_delete=models.SET_NULL, null=True, blank=True, related_name='imagenologia_subidos')
     tipo = models.CharField(max_length=50)
     categoria = models.CharField(max_length=50)
     nombre_examen = models.CharField(max_length=100)
     descripcion = models.TextField(blank=True, null=True)
     fecha_realizacion = models.DateField()
-    archivo = models.FileField(upload_to=ruta_archivo_imagenologia)
+    
+    # CAMBIO AQUI
+    archivo = models.URLField(max_length=500, null=True, blank=True)
+
     fecha_subida = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
