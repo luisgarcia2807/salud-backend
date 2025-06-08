@@ -457,18 +457,62 @@ class ExamenLaboratorioView(APIView):
         except ExamenLaboratorio.DoesNotExist:
             return Response({"error": "Examen no encontrado"}, status=status.HTTP_404_NOT_FOUND)
     
+
 class ExamenlabImagenologiaView(APIView):
-    def post(self, request):
-        serializer = ExamenImagenologiaSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    parser_classes = (MultiPartParser, FormParser)
 
     def get(self, request, paciente_id):
-        examenes = ExamenLabImagenologia.objects.filter(paciente_id=paciente_id).order_by('-fecha_realizacion')
-        serializer = ExamenImagenologiaSerializer(examenes, many=True)
-        return Response(serializer.data)
+        examenes = ExamenLabImagenologia.objects.filter(paciente_id=paciente_id).select_related('doctor__id_usuario').order_by('-fecha_subida')
+        resultados = []
+
+        for examen in examenes:
+            resultados.append({
+                'id': examen.id,
+                'tipo': examen.tipo,
+                'categoria': examen.categoria,
+                'nombre_examen': examen.nombre_examen,
+                'descripcion': examen.descripcion,
+                'fecha_realizacion': examen.fecha_realizacion,
+                'archivo': examen.archivo,
+                'fecha_subida': examen.fecha_subida,
+                'paciente': examen.paciente_id,
+                'doctor': examen.doctor_id,
+                'nombre_doctor': (
+                    f"{examen.doctor.id_usuario.nombre} {examen.doctor.id_usuario.apellido}"
+                    if examen.doctor and examen.doctor.id_usuario else None
+                )
+            })
+
+        return Response(resultados, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        archivo = request.FILES.get('archivo')
+        if archivo:
+            contenido = archivo.read()
+            ruta = f"imagenologia/{archivo.name}"
+            supabase.storage.from_("examenes").upload(ruta, contenido, {"content-type": archivo.content_type})
+            url_publica = supabase.storage.from_("examenes").get_public_url(ruta)
+
+            data = request.data.dict()
+            data["archivo"] = url_publica
+
+            serializer = ExamenImagenologiaSerializer(data=data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({"error": "Archivo no recibido"}, status=400)
+
+    def delete(self, request, examen_id):
+        try:
+            examen = ExamenLabImagenologia.objects.get(id=examen_id)
+            examen.delete()
+            
+            return Response({"mensaje": "Examen eliminado correctamente"}, status=status.HTTP_204_NO_CONTENT)
+        except ExamenLabImagenologia.DoesNotExist:
+            return Response({"error": "Examen no encontrado"}, status=status.HTTP_404_NOT_FOUND)
+
 
 import cv2
 import numpy as np
