@@ -407,10 +407,28 @@ class ExamenLaboratorioView(APIView):
     parser_classes = (MultiPartParser, FormParser)
 
     def get(self, request, paciente_id):
-        # Buscar los exámenes del paciente con ese ID
-        examenes = ExamenLaboratorio.objects.filter(paciente_id=paciente_id)
-        serializer = ExamenLaboratorioSerializer(examenes, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        examenes = ExamenLaboratorio.objects.filter(paciente_id=paciente_id).select_related('doctor__id_usuario').order_by('-fecha_subida')
+        resultados = []
+
+        for examen in examenes:
+            resultados.append({
+                'id': examen.id,
+                'tipo': examen.tipo,
+                'categoria': examen.categoria,
+                'nombre_examen': examen.nombre_examen,
+                'descripcion': examen.descripcion,
+                'fecha_realizacion': examen.fecha_realizacion,
+                'archivo': examen.archivo,
+                'fecha_subida': examen.fecha_subida,
+                'paciente': examen.paciente_id,
+                'doctor': examen.doctor_id,
+                'nombre_doctor': (
+                    f"{examen.doctor.id_usuario.nombre} {examen.doctor.id_usuario.apellido}"
+                    if examen.doctor and examen.doctor.id_usuario else None
+                )
+            })
+
+        return Response(resultados, status=status.HTTP_200_OK)
 
     def post(self, request):
         archivo = request.FILES.get('archivo')
