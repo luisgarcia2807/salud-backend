@@ -43,6 +43,7 @@ urlpatterns = [
     path('api/procesar_documento/', procesar_documento, name='procesar_documento'),
     path('api/imagenologia/', ExamenlabImagenologiaView.as_view(), name='subir_examen'),
     path('api/imagenologia/<int:paciente_id>/', ExamenlabImagenologiaView.as_view(), name='listar_examenes_paciente'),
+    path('api/imagenologia/eliminar/<int:examen_id>/', ExamenlabImagenologiaView.as_view()),
     path('api/proxima-dosis/<int:paciente_id>/<int:vacuna_id>/', proxima_dosis),
     path('api/paciente/<int:paciente_id>/ultimas-vacunas/', ultimas_dosis_por_paciente),
     path('api/paciente/<int:paciente_id>/tratamientos/', views.tratamientos_por_paciente),
