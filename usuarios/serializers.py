@@ -152,7 +152,7 @@ class PacienteSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Paciente
-        fields = ['id_paciente', 'id_usuario', 'id_sangre']
+        fields = ['id_paciente', 'id_usuario','perfil_bebe', 'id_sangre']
 
 # serializers.py
 

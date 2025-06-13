@@ -156,6 +156,15 @@ class PacientePorUsuarioView(APIView):
         except Paciente.DoesNotExist:
             return Response({"detail": "No se encontró paciente asociado a ese usuario."}, status=status.HTTP_404_NOT_FOUND)
         
+class PacientePorPerfilBebeView(APIView):
+    def get(self, request, id_perfil_bebe):
+        try:
+            paciente = Paciente.objects.select_related('perfil_bebe', 'id_sangre').get(perfil_bebe=id_perfil_bebe)
+            serializer = PacienteSerializer(paciente)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Paciente.DoesNotExist:
+            return Response({"detail": "No se encontró paciente asociado a ese perfil de bebé."}, status=status.HTTP_404_NOT_FOUND)
+
 
 class UsuarioPorPacienteView(APIView):
     def get(self, request, id_paciente):
