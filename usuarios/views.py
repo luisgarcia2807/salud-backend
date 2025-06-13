@@ -39,7 +39,14 @@ class PerfilBebeViewSet(viewsets.ModelViewSet):
     queryset = PerfilBebe.objects.all()
     serializer_class = PerfilBebeRegistroSerializer
 
- 
+from rest_framework.generics import ListAPIView
+
+class BebesPorResponsableView(ListAPIView):
+    serializer_class = PerfilBebeRegistroSerializer
+
+    def get_queryset(self):
+        responsable_id = self.kwargs.get('responsable_id')
+        return PerfilBebe.objects.filter(responsable_id=responsable_id)
 
 # ViewSet para el manejo de usuarios
 class UsuarioViewSet(viewsets.ModelViewSet):
