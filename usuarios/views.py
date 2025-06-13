@@ -166,14 +166,34 @@ class PacientePorPerfilBebeView(APIView):
             return Response({"detail": "No se encontró paciente asociado a ese perfil de bebé."}, status=status.HTTP_404_NOT_FOUND)
 
 
-class UsuarioPorPacienteView(APIView):
+class DatosBasicosPorPacienteView(APIView):
     def get(self, request, id_paciente):
         try:
-            paciente = Paciente.objects.select_related('id_usuario').get(id_paciente=id_paciente)
-            id_usuario = paciente.id_usuario.id_usuario  # ← importante: este es el campo de tu modelo
-            return Response({"id_usuario": id_usuario}, status=status.HTTP_200_OK)
+            paciente = Paciente.objects.select_related('id_usuario', 'perfil_bebe', 'id_sangre').get(id_paciente=id_paciente)
+
+            data = {
+                "id_paciente": paciente.id_paciente,
+                "id_sangre": paciente.id_sangre.id_sangre if paciente.id_sangre else None,
+                "tipo_sangre": paciente.id_sangre.tipo_sangre if paciente.id_sangre else None,
+            }
+
+            if paciente.id_usuario:
+                data["tipo"] = "usuario"
+                data["id_u"] = paciente.id_usuario.id_usuario
+            elif paciente.perfil_bebe:
+                data["tipo"] = "bebe"
+                data["id_u"] = paciente.perfil_bebe.id
+            else:
+                return Response(
+                    {"detail": "El paciente no tiene usuario ni perfil de bebé asociado."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            return Response(data, status=status.HTTP_200_OK)
+
         except Paciente.DoesNotExist:
             return Response({"detail": "Paciente no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
         
 class ListaAlergias(APIView):
     def get(self, request):
