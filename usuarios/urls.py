@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import ActivarDoctorView, AlergiasPorPacienteView, BebesPorResponsableView, DiagnosticoIAOpenRouter, DoctorPacienteViewSet, DoctorPorUsuarioView, DoctoresActivosInactivosView, EnfermedadPersistenteListView, EnfermedadesPorPacienteView, ExamenLaboratorioView, ExamenlabImagenologiaView, GrupoSanguineoListView, ListaAlergias, MedicamentoCronicoListView, PacienteAlergiaViewSet, PacienteEnfermedadPersistenteViewSet, PacienteMedicamentoCronicoViewSet, PacientePorUsuarioView, PerfilBebeViewSet, SignosVitalesViewSet, SolicitudesPorDoctorAPIView, SolicitudesPorPacienteAPIView, SubirArchivoSupabase, SubirDocumentoView, SubirImagenPruebaView, TratamientosCronicosPorPacienteView, UsuarioDetailView, UsuarioPorPacienteView, UsuarioViewSet, CustomTokenObtainPairView, CustomTokenRefreshView, VacunaListView, VacunaPacienteViewSet, VacunasPorPacienteView, actualizar_foto_perfil, actualizar_tratamiento, buscar_paciente_por_cedula, listar_medicamentos, procesar_documento, proxima_dosis, ultimas_dosis_por_paciente
+from .views import ActivarDoctorView, AlergiasPorPacienteView, BebesPorResponsableView, DiagnosticoIAOpenRouter, DoctorPacienteViewSet, DoctorPorUsuarioView, DoctoresActivosInactivosView, EnfermedadPersistenteListView, EnfermedadesPorPacienteView, ExamenLaboratorioView, ExamenlabImagenologiaView, GrupoSanguineoListView, ListaAlergias, MedicamentoCronicoListView, PacienteAlergiaViewSet, PacienteEnfermedadPersistenteViewSet, PacienteMedicamentoCronicoViewSet, PacientePorUsuarioView, PerfilBebeDetailView, PerfilBebeViewSet, SignosVitalesViewSet, SolicitudesPorDoctorAPIView, SolicitudesPorPacienteAPIView, SubirArchivoSupabase, SubirDocumentoView, SubirImagenPruebaView, TratamientosCronicosPorPacienteView, UsuarioDetailView, UsuarioPorPacienteView, UsuarioViewSet, CustomTokenObtainPairView, CustomTokenRefreshView, VacunaListView, VacunaPacienteViewSet, VacunasPorPacienteView, actualizar_foto_perfil, actualizar_tratamiento, buscar_paciente_por_cedula, listar_medicamentos, procesar_documento, proxima_dosis, ultimas_dosis_por_paciente
 from .views import CentroMedicoListView, EspecialidadListView
 from . import views
 
@@ -61,8 +61,7 @@ urlpatterns = [
     path('api/doctores/por-usuario/<int:id_usuario>/', DoctorPorUsuarioView.as_view(), name='doctor-por-usuario'),
     path('api/analizar-texto/', DiagnosticoIAOpenRouter.as_view()),
     path('api/bebes/responsable/<int:responsable_id>/', BebesPorResponsableView.as_view(), name='bebes-por-responsable'),
-
-
+    path('api/bebes/<int:id_bebe>/', PerfilBebeDetailView.as_view(), name='perfil-bebe-detail'),
 
 
 ]

@@ -35,6 +35,20 @@ class UsuarioDetailView(APIView):
 
         
 
+class PerfilBebeDetailView(APIView):
+    def get(self, request, id_bebe, *args, **kwargs):
+        try:
+            bebe = PerfilBebe.objects.get(id=id_bebe)
+            data = {
+                "nombre": bebe.nombre,
+                "apellido": bebe.apellido,
+                "fecha_nacimiento": bebe.fecha_nacimiento,
+                "sexo": bebe.sexo,
+            }
+            return Response(data, status=status.HTTP_200_OK)
+        except PerfilBebe.DoesNotExist:
+            return Response({"detail": "Perfil bebé no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
 class PerfilBebeViewSet(viewsets.ModelViewSet):
     queryset = PerfilBebe.objects.all()
     serializer_class = PerfilBebeRegistroSerializer
