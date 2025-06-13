@@ -40,6 +40,26 @@ class Usuario(AbstractUser):
         return f"{self.nombre} {self.apellido}"
  
 
+
+class PerfilBebe(models.Model):
+    nombre = models.CharField(max_length=100)
+    apellido = models.CharField(max_length=100)
+    fecha_nacimiento = models.DateField()
+    sexo = models.CharField(
+        max_length=10,
+        choices=[('M', 'Masculino'), ('F', 'Femenino'), ('O', 'Otro')],
+        blank=True,
+        null=True
+    )
+    responsable = models.ForeignKey(
+        'Usuario',
+        on_delete=models.CASCADE,
+        related_name='bebes_responsables'
+    )
+
+    def __str__(self):
+        return f"{self.nombre} {self.apellido}"
+
 class GrupoSanguineo(models.Model):
     id_sangre = models.AutoField(primary_key=True)  # Coincide con SERIAL
     tipo_sangre = models.CharField(max_length=5)
@@ -54,12 +74,38 @@ class GrupoSanguineo(models.Model):
 
 class Paciente(models.Model):
     id_paciente = models.AutoField(primary_key=True)
-    id_usuario = models.OneToOneField('Usuario', on_delete=models.CASCADE)
-    id_sangre = models.ForeignKey(GrupoSanguineo, on_delete=models.PROTECT)
+    id_usuario = models.OneToOneField(
+        'Usuario',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True
+    )
+    id_sangre = models.ForeignKey(
+        GrupoSanguineo,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True
+    )
+    perfil_bebe = models.OneToOneField(
+        'PerfilBebe',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True
+    )
+
+    def clean(self):
+        if not self.id_usuario and not self.perfil_bebe:
+            raise ValidationError("Debe tener un usuario o un perfil de bebé asociado.")
+        if self.id_usuario and self.perfil_bebe:
+            raise ValidationError("No puede tener usuario y perfil de bebé al mismo tiempo.")
 
     def __str__(self):
-        return f"{self.id_usuario.nombre} {self.id_usuario.apellido}"
-    
+        if self.id_usuario:
+            return f"{self.id_usuario.nombre} {self.id_usuario.apellido}"
+        elif self.perfil_bebe:
+            return f"{self.perfil_bebe.nombre} {self.perfil_bebe.apellido}"
+        else:
+            return "Paciente sin datos"
 
 class Especialidad(models.Model):
     id_especialidad = models.AutoField(primary_key=True)  # Serial en PostgreSQL, AutoField en Django

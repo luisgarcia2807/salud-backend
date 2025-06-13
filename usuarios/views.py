@@ -1,6 +1,6 @@
 from rest_framework import viewsets, serializers, status
-from .models import Alergia, Doctor, DoctorCentro, EnfermedadPersistente, ExamenLabImagenologia, ExamenLaboratorio, GrupoSanguineo, MedicamentoCronico, Paciente, PacienteAlergia, PacienteEnfermedadPersistente, PacienteMedicamentoCronico, RegistroVacuna, Usuario, Vacuna
-from .serializers import AlergiaSerializer, DoctorPacienteDetalleSerializer, DoctorSerializer, DocumentoEscaneadoSerializer, EnfermedadPersistenteSerializer, ExamenImagenologiaSerializer, ExamenLaboratorioSerializer, GrupoSanguineoSerializer, MedicamentoCronicoSerializer, PacienteAlergiaSerializer, PacienteEnfermedadPersistenteSerializer, PacienteMedicamentoCronicoSerializer, PacienteSerializer, RegistroVacunaSerializer, UsuarioSerializer, VacunaSerializer
+from .models import Alergia, Doctor, DoctorCentro, EnfermedadPersistente, ExamenLabImagenologia, ExamenLaboratorio, GrupoSanguineo, MedicamentoCronico, Paciente, PacienteAlergia, PacienteEnfermedadPersistente, PacienteMedicamentoCronico, PerfilBebe, RegistroVacuna, Usuario, Vacuna
+from .serializers import AlergiaSerializer, DoctorPacienteDetalleSerializer, DoctorSerializer, DocumentoEscaneadoSerializer, EnfermedadPersistenteSerializer, ExamenImagenologiaSerializer, ExamenLaboratorioSerializer, GrupoSanguineoSerializer, MedicamentoCronicoSerializer, PacienteAlergiaSerializer, PacienteEnfermedadPersistenteSerializer, PacienteMedicamentoCronicoSerializer, PacienteSerializer, PerfilBebeRegistroSerializer, RegistroVacunaSerializer, UsuarioSerializer, VacunaSerializer
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django.contrib.auth import authenticate
@@ -34,6 +34,13 @@ class UsuarioDetailView(APIView):
             return Response({"detail": "Usuario no encontrado."}, status=status.HTTP_404_NOT_FOUND)
 
         
+
+class PerfilBebeViewSet(viewsets.ModelViewSet):
+    queryset = PerfilBebe.objects.all()
+    serializer_class = PerfilBebeRegistroSerializer
+
+ 
+
 # ViewSet para el manejo de usuarios
 class UsuarioViewSet(viewsets.ModelViewSet):
     queryset = Usuario.objects.all()  # Obtiene todos los usuarios

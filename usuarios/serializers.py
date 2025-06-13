@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.db import transaction
 from django.contrib.auth import authenticate
-from .models import Alergia, EnfermedadPersistente, ExamenLabImagenologia, ExamenLaboratorio, GrupoSanguineo, MedicamentoCronico, PacienteAlergia, PacienteEnfermedadPersistente, PacienteMedicamentoCronico, Usuario, Paciente, Doctor, Especialidad, EspecialidadDoctor, CentroMedico, DoctorCentro, Vacuna
+from .models import Alergia, EnfermedadPersistente, ExamenLabImagenologia, ExamenLaboratorio, GrupoSanguineo, MedicamentoCronico, PacienteAlergia, PacienteEnfermedadPersistente, PacienteMedicamentoCronico, PerfilBebe, Usuario, Paciente, Doctor, Especialidad, EspecialidadDoctor, CentroMedico, DoctorCentro, Vacuna
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 class UsuarioSerializer(serializers.ModelSerializer):
@@ -73,6 +73,40 @@ class UsuarioSerializer(serializers.ModelSerializer):
 
         return usuario
 
+
+
+class PerfilBebeRegistroSerializer(serializers.ModelSerializer):
+    responsable_id = serializers.IntegerField(write_only=True)
+    id_sangre = serializers.IntegerField(write_only=True)
+
+    class Meta:
+        model = PerfilBebe
+        fields = [
+            'id', 'nombre', 'apellido', 'fecha_nacimiento', 'sexo',
+             'responsable_id', 'id_sangre'
+        ]
+
+    def validate_responsable_id(self, value):
+        if not Usuario.objects.filter(id_usuario=value).exists():
+            raise serializers.ValidationError("El usuario responsable no existe.")
+        return value
+
+    def validate_id_sangre(self, value):
+        if not GrupoSanguineo.objects.filter(id_sangre=value).exists():
+            raise serializers.ValidationError("El grupo sanguíneo no existe.")
+        return value
+
+    @transaction.atomic
+    def create(self, validated_data):
+        responsable_id = validated_data.pop('responsable_id')
+        id_sangre = validated_data.pop('id_sangre')
+
+        responsable = Usuario.objects.get(id_usuario=responsable_id)
+        perfil_bebe = PerfilBebe.objects.create(responsable=responsable, **validated_data)
+
+        Paciente.objects.create(perfil_bebe=perfil_bebe, id_sangre_id=id_sangre)
+
+        return perfil_bebe
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
