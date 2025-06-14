@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import ActivarDoctorView, AlergiasPorPacienteView, BebesPorResponsableView, DatosBasicosPorPacienteView, DiagnosticoIAOpenRouter, DoctorPacienteViewSet, DoctorPorUsuarioView, DoctoresActivosInactivosView, EnfermedadPersistenteListView, EnfermedadesPorPacienteView, ExamenLaboratorioView, ExamenlabImagenologiaView, GrupoSanguineoListView, ListaAlergias, MedicamentoCronicoListView, PacienteAlergiaViewSet, PacienteEnfermedadPersistenteViewSet, PacienteMedicamentoCronicoViewSet, PacientePorPerfilBebeView, PacientePorUsuarioView, PerfilBebeDetailView, PerfilBebeViewSet, SignosVitalesViewSet, SolicitudesPorDoctorAPIView, SolicitudesPorPacienteAPIView, SubirArchivoSupabase, SubirDocumentoView, SubirImagenPruebaView, TratamientosCronicosPorPacienteView, UsuarioDetailView, UsuarioViewSet, CustomTokenObtainPairView, CustomTokenRefreshView, VacunaListView, VacunaPacienteViewSet, VacunasPorPacienteView, actualizar_foto_perfil, actualizar_tratamiento, buscar_paciente_por_cedula, listar_medicamentos, procesar_documento, proxima_dosis, ultimas_dosis_por_paciente,  obtener_paciente_por_token
-from .views import CentroMedicoListView, EspecialidadListView
+from .views import CentroMedicoListView, EspecialidadListView, DatosBasicosPorTokenView
 from . import views
 
 
@@ -59,6 +59,7 @@ urlpatterns = [
     path('api/solicitudes/doctor/<int:doctor_id>/', SolicitudesPorDoctorAPIView.as_view()),
     path('api/solicitudes/paciente/<int:paciente_id>/', SolicitudesPorPacienteAPIView.as_view()),
     path('api/usuario-desde-paciente/<int:id_paciente>/', DatosBasicosPorPacienteView.as_view()),
+    path('api/paciente/token/<str:token>/', DatosBasicosPorTokenView.as_view(), name='paciente-por-token'),
     path('api/doctores/por-usuario/<int:id_usuario>/', DoctorPorUsuarioView.as_view(), name='doctor-por-usuario'),
     path('api/analizar-texto/', DiagnosticoIAOpenRouter.as_view()),
     path('api/bebes/responsable/<int:responsable_id>/', BebesPorResponsableView.as_view(), name='bebes-por-responsable'),
