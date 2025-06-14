@@ -195,6 +195,7 @@ class DatosBasicosPorPacienteView(APIView):
         except Paciente.DoesNotExist:
             return Response({"detail": "Paciente no encontrado."}, status=status.HTTP_404_NOT_FOUND)
 
+
 class DatosBasicosPorTokenView(APIView):
     def get(self, request, token):
         try:
@@ -210,9 +211,15 @@ class DatosBasicosPorTokenView(APIView):
             if paciente.id_usuario:
                 data["tipo"] = "usuario"
                 data["id_u"] = paciente.id_usuario.id_usuario
+                data["nombre"] = paciente.id_usuario.nombre
+                data["apellido"] = paciente.id_usuario.apellido
+
             elif paciente.perfil_bebe:
                 data["tipo"] = "bebe"
                 data["id_u"] = paciente.perfil_bebe.id
+                data["nombre"] = paciente.perfil_bebe.nombre
+                data["apellido"] = paciente.perfil_bebe.apellido
+
             else:
                 return Response(
                     {"detail": "El paciente no tiene usuario ni perfil de bebé asociado."},
@@ -223,7 +230,7 @@ class DatosBasicosPorTokenView(APIView):
 
         except Paciente.DoesNotExist:
             return Response({"detail": "Paciente no encontrado con ese token."}, status=status.HTTP_404_NOT_FOUND)
-        
+
 class ListaAlergias(APIView):
     def get(self, request):
         tipo = request.GET.get('tipo', None)  # Obtiene el parámetro 'tipo' de la URL
