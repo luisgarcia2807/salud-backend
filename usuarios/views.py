@@ -175,6 +175,7 @@ class DatosBasicosPorPacienteView(APIView):
                 "id_paciente": paciente.id_paciente,
                 "id_sangre": paciente.id_sangre.id_sangre if paciente.id_sangre else None,
                 "tipo_sangre": paciente.id_sangre.tipo_sangre if paciente.id_sangre else None,
+                "token": paciente.token,
             }
 
             if paciente.id_usuario:
@@ -992,3 +993,27 @@ class SignosVitalesViewSet(viewsets.ModelViewSet):
             raise serializers.ValidationError("Paciente no válido.")
         
         serializer.save(paciente=paciente)
+
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
+from usuarios.models import Paciente
+import uuid
+
+@api_view(['POST'])
+def obtener_paciente_por_token(request):
+    token = request.data.get('token')
+
+    if not token:
+        return Response({'error': 'Token no proporcionado'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        uuid_token = uuid.UUID(token)  # Verifica que sea un UUID válido
+        paciente = Paciente.objects.get(token=uuid_token)
+    except ValueError:
+        return Response({'error': 'Token inválido'}, status=status.HTTP_400_BAD_REQUEST)
+    except Paciente.DoesNotExist:
+        return Response({'error': 'Paciente no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+    return Response({'paciente_id': paciente.id_paciente}, status=status.HTTP_200_OK)
+

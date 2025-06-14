@@ -71,6 +71,7 @@ class GrupoSanguineo(models.Model):
     def __str__(self):
         return self.tipo_sangre
 
+import uuid
 
 class Paciente(models.Model):
     id_paciente = models.AutoField(primary_key=True)
@@ -92,6 +93,7 @@ class Paciente(models.Model):
         null=True,
         blank=True
     )
+    token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, null=True, blank=True)
 
     def clean(self):
         if not self.id_usuario and not self.perfil_bebe:
