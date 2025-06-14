@@ -342,26 +342,6 @@ from rest_framework import serializers
 from .models import DoctorPaciente
 
 class DoctorPacienteDetalleSerializer(serializers.ModelSerializer):
-    paciente_nombre = serializers.CharField(
-        source='paciente.id_usuario.nombre', read_only=True
-    )
-    paciente_apellido = serializers.CharField(
-        source='paciente.id_usuario.apellido', read_only=True
-    )
-    paciente_cedula = serializers.CharField(
-        source='paciente.id_usuario.cedula', read_only=True
-    )
-
-    doctor_nombre = serializers.CharField(
-        source='doctor.id_usuario.nombre', read_only=True
-    )
-    doctor_apellido = serializers.CharField(
-        source='doctor.id_usuario.apellido', read_only=True
-    )
-    doctor_cedula = serializers.CharField(
-        source='doctor.id_usuario.cedula', read_only=True
-    )
-
     class Meta:
         model = DoctorPaciente
         fields = [
@@ -372,13 +352,33 @@ class DoctorPacienteDetalleSerializer(serializers.ModelSerializer):
             'aprobado_en',
             'doctor',
             'paciente',
-            'paciente_nombre',
-            'paciente_apellido',
-            'paciente_cedula',
-            'doctor_nombre',
-            'doctor_apellido',
-            'doctor_cedula',
         ]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+
+        # Datos del doctor
+        doctor_usuario = getattr(instance.doctor, 'id_usuario', None)
+        data['doctor_nombre'] = doctor_usuario.nombre if doctor_usuario else ''
+        data['doctor_apellido'] = doctor_usuario.apellido if doctor_usuario else ''
+        data['doctor_cedula'] = doctor_usuario.cedula if doctor_usuario else ''
+
+        # Datos del paciente (usuario o perfil bebé)
+        paciente = instance.paciente
+        if paciente.id_usuario:
+            data['paciente_nombre'] = paciente.id_usuario.nombre
+            data['paciente_apellido'] = paciente.id_usuario.apellido
+            data['paciente_cedula'] = paciente.id_usuario.cedula
+        elif paciente.perfil_bebe:
+            data['paciente_nombre'] = paciente.perfil_bebe.nombre
+            data['paciente_apellido'] = paciente.perfil_bebe.apellido
+            data['paciente_cedula'] = ''
+        else:
+            data['paciente_nombre'] = ''
+            data['paciente_apellido'] = ''
+            data['paciente_cedula'] = ''
+
+        return data
 
 from .models import SignosVitales
 
