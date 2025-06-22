@@ -1,6 +1,6 @@
 from rest_framework import viewsets, serializers, status
 from .models import Alergia, Doctor, DoctorCentro, EnfermedadPersistente, ExamenLabImagenologia, ExamenLaboratorio, GrupoSanguineo, MedicamentoCronico, Paciente, PacienteAlergia, PacienteEnfermedadPersistente, PacienteMedicamentoCronico, PerfilBebe, RegistroVacuna, Usuario, Vacuna
-from .serializers import AlergiaSerializer, DoctorPacienteDetalleSerializer, DoctorSerializer, DocumentoEscaneadoSerializer, EnfermedadPersistenteSerializer, ExamenImagenologiaSerializer, ExamenLaboratorioSerializer, GrupoSanguineoSerializer, MedicamentoCronicoSerializer, PacienteAlergiaSerializer, PacienteEnfermedadPersistenteSerializer, PacienteMedicamentoCronicoSerializer, PacienteSerializer, PerfilBebeRegistroSerializer, RegistroVacunaSerializer, UsuarioSerializer, VacunaSerializer
+from .serializers import AlergiaSerializer, DoctorPacienteDetalleSerializer, DoctorSerializer, DocumentoEscaneadoSerializer, EnfermedadPersistenteSerializer, ExamenImagenologiaSerializer, ExamenLaboratorioSerializer, GrupoSanguineoSerializer, HistoriaClinicaPacienteSerializer, MedicamentoCronicoSerializer, PacienteAlergiaSerializer, PacienteEnfermedadPersistenteSerializer, PacienteMedicamentoCronicoSerializer, PacienteSerializer, PerfilBebeRegistroSerializer, RegistroVacunaSerializer, UsuarioSerializer, VacunaSerializer
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django.contrib.auth import authenticate
@@ -968,17 +968,28 @@ class SubirArchivoSupabase(APIView):
     
 
 
-class DiagnosticoIAOpenRouter(APIView):
+from rest_framework.views import APIView
+from rest_framework.response import Response
+import requests
+import json
+
+class HistoriaClinicaIAOpenRouter(APIView):
     def post(self, request):
-        texto = request.data.get('texto')
-        if not texto:
-            return Response({'error': 'No se proporcionó el texto del examen'}, status=400)
+        historia_clinica = request.data.get('historia_clinica')
+        if not historia_clinica:
+            return Response({'error': 'No se proporcionó la historia clínica'}, status=400)
 
-        # Instrucción para la IA
+        # Convertir a JSON string para incrustar en prompt
+        historia_clinica_str = json.dumps(historia_clinica, indent=2, ensure_ascii=False)
+
         prompt = f"""
-Eres un médico experto. Analiza el siguiente texto de un examen médico y proporciona un diagnóstico preliminar claro, técnico y preciso:
+Eres un asistente médico experto en redacción clínica. A partir de la siguiente información estructurada en JSON sobre un paciente, genera un documento de historia clínica formal, claro y organizado, con apartados y subtítulos para facilitar la lectura médica:
 
-{texto}
+{historia_clinica_str}
+
+Organiza los datos en secciones como: Datos Personales, Signos Vitales, Consultas Médicas, Medicamentos Actuales, Alergias, Vacunas, Enfermedades Persistentes, Medicamentos Crónicos, Exámenes de Laboratorio y Exámenes de Imagenología.
+
+Redacta en un lenguaje formal y profesional, usa listas o párrafos claros, e incluye fechas cuando estén disponibles.
 """
 
         try:
@@ -989,7 +1000,7 @@ Eres un médico experto. Analiza el siguiente texto de un examen médico y propo
                     "Content-Type": "application/json"
                 },
                 json={
-                    "model": "meta-llama/llama-3-8b-instruct",  # Puedes cambiar por otro gratuito si prefieres
+                    "model": "meta-llama/llama-3-8b-instruct",
                     "messages": [{"role": "user", "content": prompt}],
                     "temperature": 0.7
                 }
@@ -997,8 +1008,8 @@ Eres un médico experto. Analiza el siguiente texto de un examen médico y propo
             data = response.json()
             resultado = data['choices'][0]['message']['content']
             return Response({
-                "mensaje": "Diagnóstico generado con éxito",
-                "diagnostico": resultado
+                "mensaje": "Historia clínica organizada generada con éxito",
+                "historia_clinica_formateada": resultado
             })
 
         except Exception as e:
@@ -1052,3 +1063,59 @@ def obtener_paciente_por_token(request):
 
     return Response({'paciente_id': paciente.id_paciente}, status=status.HTTP_200_OK)
 
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from .models import Consulta
+from .serializers import ConsultaSerializer
+
+class ConsultaListCreateView(APIView):
+    def get(self, request):
+        consultas = Consulta.objects.all()
+        serializer = ConsultaSerializer(consultas, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        serializer = ConsultaSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+from django.shortcuts import get_object_or_404
+
+class ConsultaDetailView(APIView):
+    def get(self, request, pk):
+        consulta = get_object_or_404(Consulta, pk=pk)
+        serializer = ConsultaSerializer(consulta)
+        return Response(serializer.data)
+
+    def put(self, request, pk):
+        consulta = get_object_or_404(Consulta, pk=pk)
+        serializer = ConsultaSerializer(consulta, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        consulta = get_object_or_404(Consulta, pk=pk)
+        consulta.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+from .models import DiagnosticoConsulta
+from .serializers import DiagnosticoConsultaSerializer
+
+class DiagnosticoConsultaView(APIView):
+    def post(self, request):
+        serializer = DiagnosticoConsultaSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class HistoriaClinicaPacienteView(APIView):
+    def get(self, request, paciente_id):
+        paciente = get_object_or_404(Paciente, id_paciente=paciente_id)
+        serializer = HistoriaClinicaPacienteSerializer(paciente)
+        return Response(serializer.data, status=status.HTTP_200_OK)

@@ -372,7 +372,7 @@ class DoctorPacienteDetalleSerializer(serializers.ModelSerializer):
         elif paciente.perfil_bebe:
             data['paciente_nombre'] = paciente.perfil_bebe.nombre
             data['paciente_apellido'] = paciente.perfil_bebe.apellido
-            data['paciente_cedula'] = ''
+            data['paciente_cedula'] = 'No tiene, es hijo'
         else:
             data['paciente_nombre'] = ''
             data['paciente_apellido'] = ''
@@ -408,3 +408,162 @@ class SignosVitalesSerializer(serializers.ModelSerializer):
         if not any(data.get(campo) is not None for campo in campos_vitales):
             raise serializers.ValidationError("Debe registrar al menos un signo vital.")
         return data
+
+from .models import Consulta
+from rest_framework import serializers
+from .serializers import SignosVitalesSerializer, TratamientoActualSerializer
+
+class ConsultaSerializer(serializers.ModelSerializer):
+    signos_vitales = SignosVitalesSerializer(many=True, read_only=True)
+    tratamientos = TratamientoActualSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Consulta
+        fields = ['id', 'paciente', 'doctor', 'fecha', 'motivo', 'observaciones', 'signos_vitales', 'tratamientos']
+        read_only_fields = ['id', 'fecha']
+
+from .models import DiagnosticoConsulta
+
+class DiagnosticoConsultaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DiagnosticoConsulta
+        fields = ['id', 'consulta', 'descripcion', 'es_enfermedad_preexistente']
+
+from rest_framework import serializers
+
+class PacienteAlergiaHistoriaClinicaSerializer(serializers.ModelSerializer):
+    nombre_alergia = serializers.CharField(source='alergia.nombre', read_only=True)
+    tipo_alergia = serializers.CharField(source='alergia.get_tipo_display', read_only=True)
+
+    class Meta:
+        model = PacienteAlergia
+        fields = ['nombre_alergia', 'tipo_alergia', 'gravedad', 'observacion']
+
+class RegistroVacunaHistoriaClinicaSerializer(serializers.ModelSerializer):
+    nombre_vacuna = serializers.CharField(source='vacuna.nombre', read_only=True)
+
+    class Meta:
+        model = RegistroVacuna
+        fields = ['nombre_vacuna', 'dosis', 'fecha_aplicacion', 'observacion']
+
+class EnfermedadPersistenteHistoriaClinicaSerializer(serializers.ModelSerializer):
+    nombre = serializers.CharField(source='enfermedad.nombre', read_only=True)
+    tipo = serializers.CharField(source='enfermedad.get_tipo_display', read_only=True)
+
+    class Meta:
+        model = PacienteEnfermedadPersistente
+        fields = ['nombre', 'tipo', 'fecha_diagnostico', 'observacion']
+
+class MedicamentoCronicoHistoriaClinicaSerializer(serializers.ModelSerializer):
+    nombre = serializers.CharField(source='id_medicamento_cronico.nombre')
+    descripcion = serializers.CharField(source='id_medicamento_cronico.descripcion')
+
+    class Meta:
+        model = PacienteMedicamentoCronico
+        fields = ['nombre', 'descripcion', 'fecha_inicio', 'dosis', 'frecuencia', 'observaciones']
+
+class ExamenLaboratorioHistoriaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExamenLaboratorio
+        fields = ['nombre_examen', 'tipo', 'categoria', 'descripcion', 'fecha_realizacion', 'archivo']
+
+class ExamenImagenologiaHistoriaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExamenLabImagenologia
+        fields = ['nombre_examen', 'tipo', 'categoria', 'descripcion', 'fecha_realizacion', 'archivo']
+
+class MedicamentoHCSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Medicamento
+        fields = ['nombre_comercial', 'principio_activo', 'presentacion', 'concentracion', 'via_administracion', 'tipo']
+
+class SeguimientoTratamientoHCSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SeguimientoTratamiento
+        fields = ['fecha', 'comentario', 'archivo']
+
+class TratamientoActualHCSerializer(serializers.ModelSerializer):
+    medicamento = MedicamentoHCSerializer(read_only=True)
+    seguimientos = SeguimientoTratamientoHCSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = TratamientoActual
+        fields = [
+            'medicamento', 'descripcion', 'fecha_inicio', 'fecha_fin',
+            'frecuencia', 'finalizado', 'seguimientos'
+        ]
+
+class HistoriaClinicaPacienteSerializer(serializers.ModelSerializer):
+    nombre = serializers.SerializerMethodField()
+    apellido = serializers.SerializerMethodField()
+    tipo_sangre = serializers.SerializerMethodField()
+
+    consultas = ConsultaSerializer(many=True, read_only=True)
+    signos_vitales = serializers.SerializerMethodField()
+    tratamientos_actuales = serializers.SerializerMethodField()
+
+    alergias = serializers.SerializerMethodField()
+    vacunas = serializers.SerializerMethodField()
+    enfermedades_persistentes = serializers.SerializerMethodField()
+    medicamentos_cronicos = serializers.SerializerMethodField()
+    examenes_laboratorio = serializers.SerializerMethodField()
+    examenes_imagenologia = serializers.SerializerMethodField()
+
+
+    class Meta:
+        model = Paciente
+        fields = [
+            'id_paciente', 'nombre', 'apellido', 'tipo_sangre',
+            'consultas', 'signos_vitales', 'tratamientos_actuales',
+            'alergias', 'vacunas','enfermedades_persistentes', 'medicamentos_cronicos',
+            'examenes_laboratorio', 'examenes_imagenologia'
+        ]
+
+    def get_nombre(self, obj):
+        return obj.id_usuario.nombre if obj.id_usuario else obj.perfil_bebe.nombre
+
+    def get_apellido(self, obj):
+        return obj.id_usuario.apellido if obj.id_usuario else obj.perfil_bebe.apellido
+
+    def get_tipo_sangre(self, obj):
+        return obj.id_sangre.tipo_sangre if obj.id_sangre else None
+
+    def get_signos_vitales(self, obj):
+        ultimo_signo = obj.signos_vitales.order_by('-fecha').first()
+        from .serializers import SignosVitalesSerializer
+        return SignosVitalesSerializer(ultimo_signo).data if ultimo_signo else None
+
+    def get_alergias(self, obj):
+        from .serializers import PacienteAlergiaHistoriaClinicaSerializer
+        alergias = obj.alergias.filter(aprobado=True)
+        return PacienteAlergiaHistoriaClinicaSerializer(alergias, many=True).data
+
+    def get_vacunas(self, obj):
+        from .serializers import RegistroVacunaHistoriaClinicaSerializer
+        vacunas = obj.vacunas.filter(aprobado=True).order_by('vacuna__nombre', 'dosis')
+        return RegistroVacunaHistoriaClinicaSerializer(vacunas, many=True).data
+    
+    def get_enfermedades_persistentes(self, obj):
+        from .serializers import EnfermedadPersistenteHistoriaClinicaSerializer
+        enfermedades = obj.enfermedades_persistentes.filter(aprobado=True)
+        return EnfermedadPersistenteHistoriaClinicaSerializer(enfermedades, many=True).data
+    
+    def get_medicamentos_cronicos(self, obj):
+        from .serializers import MedicamentoCronicoHistoriaClinicaSerializer
+        cronicos = obj.pacientemedicamentocronico_set.filter(aprobado=True)
+        return MedicamentoCronicoHistoriaClinicaSerializer(cronicos, many=True).data
+    
+    def get_examenes_laboratorio(self, obj):
+        from .serializers import ExamenLaboratorioHistoriaSerializer
+        examenes = obj.examenes_laboratorio.all()
+        return ExamenLaboratorioHistoriaSerializer(examenes, many=True).data
+
+    def get_examenes_imagenologia(self, obj):
+        from .serializers import ExamenImagenologiaHistoriaSerializer
+        examenes = obj.examenes_imagenologia.all()
+        return ExamenImagenologiaHistoriaSerializer(examenes, many=True).data
+    
+    def get_tratamientos_actuales(self, obj):
+        tratamientos = TratamientoActual.objects.filter(paciente=obj)
+        return TratamientoActualHCSerializer(tratamientos, many=True).data
+

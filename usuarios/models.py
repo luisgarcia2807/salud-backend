@@ -420,6 +420,7 @@ class Medicamento(models.Model):
 
 class TratamientoActual(models.Model):
     paciente = models.ForeignKey(Paciente, on_delete=models.CASCADE)
+    consulta = models.ForeignKey('Consulta', on_delete=models.SET_NULL, null=True, blank=True, related_name='tratamientos')
     medicamento = models.ForeignKey(Medicamento, on_delete=models.CASCADE)
     descripcion = models.TextField(blank=True)
     fecha_inicio = models.DateField()
@@ -431,7 +432,7 @@ class TratamientoActual(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.nombre} ({self.paciente})"
+        return f"{self.medicamento.nombre_comercial} ({self.paciente})"
 
 
 class SeguimientoTratamiento(models.Model):
@@ -468,6 +469,7 @@ class DoctorPaciente(models.Model):
 
 class SignosVitales(models.Model):
     paciente = models.ForeignKey(Paciente, on_delete=models.CASCADE, related_name='signos_vitales')
+    consulta = models.ForeignKey('Consulta', on_delete=models.SET_NULL, null=True, blank=True, related_name='signos_vitales')
     fecha = models.DateTimeField(auto_now_add=True)
 
     peso = models.FloatField(help_text="Peso en kg", null=True, blank=True)
@@ -491,3 +493,23 @@ class SignosVitales(models.Model):
 
     def __str__(self):
         return f"Signos vitales de {self.paciente} - {self.fecha.strftime('%Y-%m-%d %H:%M')}"
+
+from django.db import models
+
+class Consulta(models.Model):
+    paciente = models.ForeignKey(Paciente, on_delete=models.CASCADE, related_name='consultas')
+    doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE, related_name='consultas')
+    fecha = models.DateTimeField(auto_now_add=True)
+    motivo = models.TextField(blank=True, null=True)
+    observaciones = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"Consulta {self.id} - {self.paciente} con {self.doctor} - {self.fecha.strftime('%Y-%m-%d %H:%M')}"
+
+class DiagnosticoConsulta(models.Model):
+    consulta = models.ForeignKey(Consulta, on_delete=models.CASCADE, related_name='diagnosticos')
+    descripcion = models.CharField(max_length=255)
+    es_enfermedad_preexistente = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"Diagnóstico en Consulta {self.consulta.id}: {self.descripcion}"
