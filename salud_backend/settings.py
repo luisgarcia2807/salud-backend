@@ -72,10 +72,10 @@ WSGI_APPLICATION = 'salud_backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'saludbd',
-        'USER': 'postgress',  # ⚠️ debería ser "postgres", sin la doble "s"
-        'PASSWORD': '9HNQT4IfjIqDxYcQysm1V9Y9UzrO9cBG',
-        'HOST': 'dpg-d0o0k9mmcj7s73e02hgg-a.oregon-postgres.render.com',
+        'NAME': 'saludbd1',
+        'USER': 'saludbd1_user',
+        'PASSWORD': '9F8m7fGgmF8Rob7g3XSB0BWkVKJCAqWD',
+        'HOST': 'dpg-d1c2pgeuk2gs73a9oveg-a.oregon-postgres.render.com',
         'PORT': '5432',
     }
 }
