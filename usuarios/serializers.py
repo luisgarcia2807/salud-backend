@@ -439,6 +439,45 @@ class PacienteAlergiaHistoriaClinicaSerializer(serializers.ModelSerializer):
         model = PacienteAlergia
         fields = ['nombre_alergia', 'tipo_alergia', 'gravedad', 'observacion']
 
+# Serializador de Signos Vitales con fecha legible
+from rest_framework import serializers
+from .models import SignosVitales, Paciente
+from datetime import datetime
+
+class SignosVitaleslegibleSerializer(serializers.ModelSerializer):
+    imc = serializers.SerializerMethodField()
+    paciente = serializers.PrimaryKeyRelatedField(queryset=Paciente.objects.all())
+    fecha = serializers.SerializerMethodField()  # <- Usamos un método para formatear
+
+    class Meta:
+        model = SignosVitales
+        fields = [
+            'id', 'paciente', 'fecha', 'peso', 'altura',
+            'presion_sistolica', 'presion_diastolica',
+            'frecuencia_cardiaca', 'frecuencia_respiratoria',
+            'temperatura', 'spo2', 'glucosa', 'observaciones', 'imc'
+        ]
+        read_only_fields = ['id', 'fecha', 'imc']
+
+    def get_imc(self, obj):
+        return obj.imc()
+
+    def get_fecha(self, obj):
+        # Formatea la fecha como "22 de junio de 2025, 02:08 PM"
+        return obj.fecha.strftime("%d de %B de %Y, %I:%M %p").lower()
+
+    def validate(self, data):
+        campos_vitales = [
+            'peso', 'altura', 'presion_sistolica', 'presion_diastolica',
+            'frecuencia_cardiaca', 'frecuencia_respiratoria',
+            'temperatura', 'spo2', 'glucosa'
+        ]
+        if not any(data.get(campo) is not None for campo in campos_vitales):
+            raise serializers.ValidationError("Debe registrar al menos un signo vital.")
+        return data
+
+
+
 class RegistroVacunaHistoriaClinicaSerializer(serializers.ModelSerializer):
     nombre_vacuna = serializers.CharField(source='vacuna.nombre', read_only=True)
 
@@ -530,8 +569,8 @@ class HistoriaClinicaPacienteSerializer(serializers.ModelSerializer):
 
     def get_signos_vitales(self, obj):
         ultimo_signo = obj.signos_vitales.order_by('-fecha').first()
-        from .serializers import SignosVitalesSerializer
-        return SignosVitalesSerializer(ultimo_signo).data if ultimo_signo else None
+        from .serializers import SignosVitaleslegibleSerializer
+        return SignosVitaleslegibleSerializer(ultimo_signo).data if ultimo_signo else None
 
     def get_alergias(self, obj):
         from .serializers import PacienteAlergiaHistoriaClinicaSerializer

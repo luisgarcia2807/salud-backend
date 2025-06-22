@@ -798,6 +798,7 @@ def actualizar_tratamiento(request, pk):
         return Response(serializer.data)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+from datetime import date
 @api_view(['PATCH'])
 def finalizar_tratamiento(request, tratamiento_id):
     try:
@@ -806,7 +807,7 @@ def finalizar_tratamiento(request, tratamiento_id):
         return Response({'error': 'No encontrado'}, status=404)
     
     tratamiento.finalizado = True
-    tratamiento.fecha_fin = request.data.get('fecha_fin')
+    tratamiento.fecha_fin =  date.today() 
     tratamiento.save()
     return Response({'mensaje': 'Tratamiento finalizado'})
 
@@ -1119,3 +1120,114 @@ class HistoriaClinicaPacienteView(APIView):
         paciente = get_object_or_404(Paciente, id_paciente=paciente_id)
         serializer = HistoriaClinicaPacienteSerializer(paciente)
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
+from django.http import FileResponse, Http404
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from django.conf import settings
+
+from docx import Document
+import os
+import tempfile
+from datetime import datetime
+
+# Suponiendo que tienes el modelo Paciente y relaciones necesarias
+from .models import Paciente
+from .serializers import HistoriaClinicaPacienteSerializer  # tu serializer completo
+
+class DescargarHistoriaClinicaWord(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, id_paciente):
+        try:
+            paciente = Paciente.objects.get(id_paciente=id_paciente)
+        except Paciente.DoesNotExist:
+            return Response({"error": "Paciente no encontrado."}, status=404)
+
+        # Serializamos todos los datos que usas en el JSON
+        serializer = HistoriaClinicaPacienteSerializer(paciente)
+        data = serializer.data
+
+        # Crear archivo temporal
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp:
+            filepath = tmp.name
+            self.generar_word(data, filepath)
+
+        # Retornar el archivo para descarga
+        try:
+            response = FileResponse(open(filepath, 'rb'), content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+            response['Content-Disposition'] = f'attachment; filename="historia_clinica_paciente_{id_paciente}.docx"'
+            return response
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
+
+    def generar_word(self, data, filepath):
+        doc = Document()
+        doc.add_heading('Historia Clínica del Paciente', 0)
+
+        doc.add_heading('Datos del Paciente', level=1)
+        doc.add_paragraph(f"ID: {data['id_paciente']}")
+        doc.add_paragraph(f"Nombre: {data['nombre']} {data['apellido']}")
+        doc.add_paragraph(f"Tipo de Sangre: {data['tipo_sangre']}")
+
+        doc.add_heading('Consultas Médicas', level=1)
+        for consulta in data['consultas']:
+            doc.add_paragraph(f"- Fecha: {consulta['fecha']}")
+            doc.add_paragraph(f"  Motivo: {consulta['motivo']}")
+            doc.add_paragraph(f"  Observaciones: {consulta['observaciones']}")
+
+        sv = data['signos_vitales']
+        doc.add_heading('Signos Vitales', level=1)
+        doc.add_paragraph(f"Fecha: {sv['fecha']}")
+        doc.add_paragraph(f"Peso: {sv['peso']} kg")
+        doc.add_paragraph(f"Altura: {sv['altura']} m")
+        doc.add_paragraph(f"IMC: {sv['imc']}")
+        doc.add_paragraph(f"Presión arterial: {sv['presion_sistolica']}/{sv['presion_diastolica']} mmHg")
+        doc.add_paragraph(f"Frecuencia cardíaca: {sv['frecuencia_cardiaca']} lpm")
+        doc.add_paragraph(f"Temperatura: {sv['temperatura']} °C")
+        doc.add_paragraph(f"Glucosa: {sv['glucosa']} mg/dL")
+        doc.add_paragraph(f"Saturación O₂: {sv['spo2']}%")
+        doc.add_paragraph(f"Observaciones: {sv['observaciones']}")
+
+        doc.add_heading('Tratamientos', level=1)
+        for t in data['tratamientos_actuales']:
+            med = t['medicamento']
+            doc.add_paragraph(f"- {med['nombre_comercial']} ({med['principio_activo']} – {med['concentracion']})")
+            doc.add_paragraph(f"  Vía: {med['via_administracion']} – Tipo: {med['tipo']}")
+            doc.add_paragraph(f"  Fecha: {t['fecha_inicio']} a {t['fecha_fin'] or 'en curso'}")
+            doc.add_paragraph(f"  Frecuencia: {t['frecuencia']} – Finalizado: {'Sí' if t['finalizado'] else 'No'}")
+            doc.add_paragraph(f"  Descripción: {t['descripcion']}")
+
+        doc.add_heading('Alergias', level=1)
+        for a in data['alergias']:
+            doc.add_paragraph(f"- {a['nombre_alergia']} ({a['tipo_alergia']}) – {a['gravedad']}")
+            doc.add_paragraph(f"  Observación: {a['observacion']}")
+
+        doc.add_heading('Enfermedades Persistentes', level=1)
+        for e in data['enfermedades_persistentes']:
+            doc.add_paragraph(f"- {e['nombre']} ({e['tipo']}) desde {e['fecha_diagnostico']}")
+            doc.add_paragraph(f"  Observación: {e['observacion']}")
+
+        doc.add_heading('Vacunas', level=1)
+        for v in data['vacunas']:
+            doc.add_paragraph(f"- {v['nombre_vacuna']} – Dosis: {v['dosis']} – Fecha: {v['fecha_aplicacion']}")
+            doc.add_paragraph(f"  Observación: {v['observacion']}")
+
+        doc.add_heading('Medicamentos Crónicos', level=1)
+        for m in data['medicamentos_cronicos']:
+            doc.add_paragraph(f"- {m['nombre']}")
+            doc.add_paragraph(f"  Dosis: {m['dosis']} – Frecuencia: {m['frecuencia']}")
+            doc.add_paragraph(f"  Observación: {m['observaciones']}")
+
+        doc.add_heading('Exámenes de Laboratorio', level=1)
+        for e in data['examenes_laboratorio']:
+            doc.add_paragraph(f"- {e['nombre_examen']} – {e['categoria']} – {e['fecha_realizacion']}")
+            doc.add_paragraph(f"  Archivo: {e['archivo']}")
+
+        doc.add_heading('Imagenología', level=1)
+        for e in data['examenes_imagenologia']:
+            doc.add_paragraph(f"- {e['nombre_examen']} – {e['categoria']} – {e['fecha_realizacion']}")
+            doc.add_paragraph(f"  Archivo: {e['archivo']}")
+
+        doc.save(filepath)
