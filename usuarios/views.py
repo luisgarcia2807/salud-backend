@@ -33,7 +33,6 @@ class UsuarioDetailView(APIView):
         except Usuario.DoesNotExist:
             return Response({"detail": "Usuario no encontrado."}, status=status.HTTP_404_NOT_FOUND)
 
-        
 
 class PerfilBebeDetailView(APIView):
     def get(self, request, id_bebe, *args, **kwargs):
@@ -70,7 +69,6 @@ class UsuarioViewSet(viewsets.ModelViewSet):
     
     def create(self, request, *args, **kwargs):
         password = request.data.get('password')  # Obtener la contraseña en texto plano
-        
 
         # Si necesitas lógica adicional antes de crear, como encriptar la contraseña
         return super().create(request, *args, **kwargs)
@@ -1190,44 +1188,127 @@ class DescargarHistoriaClinicaWord(APIView):
         doc.add_paragraph(f"Saturación O₂: {sv['spo2']}%")
         doc.add_paragraph(f"Observaciones: {sv['observaciones']}")
 
-        doc.add_heading('Tratamientos', level=1)
+        doc.add_heading("Tratamientos Actuales", level=1)
         for t in data['tratamientos_actuales']:
-            med = t['medicamento']
-            doc.add_paragraph(f"- {med['nombre_comercial']} ({med['principio_activo']} – {med['concentracion']})")
-            doc.add_paragraph(f"  Vía: {med['via_administracion']} – Tipo: {med['tipo']}")
-            doc.add_paragraph(f"  Fecha: {t['fecha_inicio']} a {t['fecha_fin'] or 'en curso'}")
-            doc.add_paragraph(f"  Frecuencia: {t['frecuencia']} – Finalizado: {'Sí' if t['finalizado'] else 'No'}")
-            doc.add_paragraph(f"  Descripción: {t['descripcion']}")
+            texto = t.get('texto_formateado')
+            if texto:
+                parrafo = doc.add_paragraph()
+                for i, line in enumerate(texto.split('\n')):
+                    run = parrafo.add_run(line + '\n')
+                    if i == 0:
+                        run.bold = True  # Solo el primer renglón (nombre) en negrita
+        from docx.shared import Pt
 
         doc.add_heading('Alergias', level=1)
+
         for a in data['alergias']:
-            doc.add_paragraph(f"- {a['nombre_alergia']} ({a['tipo_alergia']}) – {a['gravedad']}")
-            doc.add_paragraph(f"  Observación: {a['observacion']}")
+            nombre = a.get('nombre_alergia', 'Desconocida')
+            tipo = a.get('tipo_alergia', 'Desconocido')
+            gravedad = a.get('gravedad', 'No especificada')
+            observacion = a.get('observacion', '')
+
+    # Crear párrafo y agregar nombre y tipo en negrita
+            p = doc.add_paragraph()
+            run = p.add_run(f"{nombre} ({tipo})\n")
+            run.bold = True
+
+    # Línea con gravedad
+            p.add_run(f"▸ Gravedad: {gravedad}\n")
+
+    # Línea con observación solo si existe
+            if observacion:
+                p.add_run(f"▸ Observación: {observacion}\n")
+
+    # Espacio después del párrafo para buena separación
+            p.paragraph_format.space_after = Pt(8)
+
+
 
         doc.add_heading('Enfermedades Persistentes', level=1)
+
         for e in data['enfermedades_persistentes']:
-            doc.add_paragraph(f"- {e['nombre']} ({e['tipo']}) desde {e['fecha_diagnostico']}")
-            doc.add_paragraph(f"  Observación: {e['observacion']}")
+            nombre = e.get('nombre', 'Desconocida')
+            tipo = e.get('tipo', 'Desconocido')
+            fecha = e.get('fecha_diagnostico', 'Fecha no disponible')
+            observacion = e.get('observacion', '')
+
+            p = doc.add_paragraph()
+            run = p.add_run(f"{nombre} ({tipo})\n")
+            run.bold = True
+
+            p.add_run(f"▸ Diagnóstico desde: {fecha}\n")
+
+            if observacion:
+                p.add_run(f"▸ Observación: {observacion}\n")
+
+            p.paragraph_format.space_after = Pt(8)
+
+        from collections import defaultdict
+
 
         doc.add_heading('Vacunas', level=1)
+        vacunas_agrupadas = defaultdict(list)
         for v in data['vacunas']:
-            doc.add_paragraph(f"- {v['nombre_vacuna']} – Dosis: {v['dosis']} – Fecha: {v['fecha_aplicacion']}")
-            doc.add_paragraph(f"  Observación: {v['observacion']}")
+            nombre = v.get('nombre_vacuna', 'Vacuna desconocida')
+            dosis = v.get('dosis', '')
+            fecha = v.get('fecha_aplicacion', '')
+            observacion = v.get('observacion', '')
+            vacunas_agrupadas[nombre].append({
+                'dosis': dosis,
+                'fecha': fecha,
+                'observacion': observacion
+    })
 
+# Ahora imprimir agrupado
+        for nombre, detalles in vacunas_agrupadas.items():
+            p = doc.add_paragraph()
+            run = p.add_run(f"{nombre}\n")
+            run.bold = True
+
+            for det in detalles:
+                dosis = det['dosis']
+                fecha = det['fecha']
+                p.add_run(f"▸ Dosis: {dosis} – Fecha: {fecha}\n")
+
+    # Tomar la observación de la primera o concatenar todas (ajusta según necesidad)
+            observaciones = {d['observacion'] for d in detalles if d['observacion']}
+            if observaciones:
+                p.add_run(f"▸ Observación: {', '.join(observaciones)}\n")
+
+            p.paragraph_format.space_after = Pt(8)
+
+        from docx.shared import Pt
+
+# Medicamentos Crónicos
         doc.add_heading('Medicamentos Crónicos', level=1)
         for m in data['medicamentos_cronicos']:
-            doc.add_paragraph(f"- {m['nombre']}")
-            doc.add_paragraph(f"  Dosis: {m['dosis']} – Frecuencia: {m['frecuencia']}")
-            doc.add_paragraph(f"  Observación: {m['observaciones']}")
+            p = doc.add_paragraph()
+            run = p.add_run(f"{m['nombre']}\n")
+            run.bold = True
+            if m.get('dosis'):
+                p.add_run(f"▸ Dosis: {m['dosis']}\n")
+            if m.get('frecuencia'):
+                p.add_run(f"▸ Frecuencia: {m['frecuencia']}\n")
+            if m.get('observaciones'):
+                p.add_run(f"▸ Observación: {m['observaciones']}\n")
+            p.paragraph_format.space_after = Pt(8)
 
+# Exámenes de Laboratorio
         doc.add_heading('Exámenes de Laboratorio', level=1)
         for e in data['examenes_laboratorio']:
-            doc.add_paragraph(f"- {e['nombre_examen']} – {e['categoria']} – {e['fecha_realizacion']}")
-            doc.add_paragraph(f"  Archivo: {e['archivo']}")
+            p = doc.add_paragraph()
+            run = p.add_run(f"{e['nombre_examen']}\n")
+            run.bold = True
+            p.add_run(f"▸ Categoría: {e['categoria']} – Fecha: {e['fecha_realizacion']}\n")
+            p.paragraph_format.space_after = Pt(8)
 
+# Imagenología
         doc.add_heading('Imagenología', level=1)
         for e in data['examenes_imagenologia']:
-            doc.add_paragraph(f"- {e['nombre_examen']} – {e['categoria']} – {e['fecha_realizacion']}")
-            doc.add_paragraph(f"  Archivo: {e['archivo']}")
+            p = doc.add_paragraph()
+            run = p.add_run(f"{e['nombre_examen']}\n")
+            run.bold = True
+            p.add_run(f"▸ Categoría: {e['categoria']} – Fecha: {e['fecha_realizacion']}\n")
+            p.paragraph_format.space_after = Pt(8)
 
         doc.save(filepath)

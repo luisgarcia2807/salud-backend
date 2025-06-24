@@ -14,6 +14,7 @@ class Rol(models.Model):
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 
+
 class Usuario(AbstractUser):
     id_usuario = models.AutoField(primary_key=True)
     nombre = models.CharField(max_length=100)
@@ -27,6 +28,29 @@ class Usuario(AbstractUser):
     foto_perfil = models.ImageField(upload_to='fotos_perfil/', null=True, blank=True)
 
     is_active = models.BooleanField(default=True)
+    SEXO_CHOICES = [
+    ('M', 'Masculino'),
+    ('F', 'Femenino'),
+    ('O', 'Otro'),
+]
+
+    NACIONALIDAD_CHOICES = [
+    ('V', 'Venezolano'),
+    ('E', 'Extranjero'),
+]
+
+    sexo = models.CharField(
+    max_length=1,
+    choices=SEXO_CHOICES,
+    default='O'  # o 'M' / 'F' según prefieras
+)
+    nacionalidad = models.CharField(
+    max_length=1,
+    choices=NACIONALIDAD_CHOICES,
+    default='V'  # o 'E' si prefieres
+    )
+
+
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username', 'telefono']

@@ -16,7 +16,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
         fields = [
             'id_usuario', 'nombre', 'apellido', 'cedula', 'email', 'telefono',
             'fecha_nacimiento', 'estado', 'id_rol', 'password',
-            'numero_licencia', 'id_especialidad', 'id_centromedico','id_sangre','foto_perfil',
+            'numero_licencia', 'id_especialidad', 'id_centromedico','id_sangre','foto_perfil','sexo', 'nacionalidad',
         ]
 
     def validate(self, attrs):
@@ -32,6 +32,15 @@ class UsuarioSerializer(serializers.ModelSerializer):
         numero_licencia = attrs.get('numero_licencia')
         if numero_licencia and Doctor.objects.filter(numero_licencia=numero_licencia).exists():
             errores['numero_licencia'] = "Este número de licencia ya está registrado."
+
+        if attrs.get('nacionalidad') not in ['V', 'E']:
+            errores['nacionalidad'] = "La nacionalidad debe ser 'V' (Venezolano) o 'E' (Extranjero)."
+
+    # Validar sexo
+        if attrs.get('sexo') not in ['M', 'F', 'O']:
+            errores['sexo'] = "El sexo debe ser 'M' (Masculino), 'F' (Femenino) o 'O' (Otro)."
+
+
 
         if errores:
             raise serializers.ValidationError(errores)
@@ -521,16 +530,51 @@ class SeguimientoTratamientoHCSerializer(serializers.ModelSerializer):
         model = SeguimientoTratamiento
         fields = ['fecha', 'comentario', 'archivo']
 
-class TratamientoActualHCSerializer(serializers.ModelSerializer):
+from rest_framework import serializers
+from django.utils.timezone import localtime
+
+from datetime import date
+
+class TratamientoActualHCSerializer(serializers.ModelSerializer): 
     medicamento = MedicamentoHCSerializer(read_only=True)
-    seguimientos = SeguimientoTratamientoHCSerializer(many=True, read_only=True)
+    texto_formateado = serializers.SerializerMethodField()
 
     class Meta:
         model = TratamientoActual
-        fields = [
-            'medicamento', 'descripcion', 'fecha_inicio', 'fecha_fin',
-            'frecuencia', 'finalizado', 'seguimientos'
-        ]
+        fields = ['medicamento', 'texto_formateado']
+
+    def get_texto_formateado(self, obj):
+        med = obj.medicamento
+        nombre = f"{med.nombre_comercial} ({med.principio_activo} – {med.concentracion})"
+        via_tipo = f"▸ Vía: {med.via_administracion} – Tipo: {med.tipo}"
+
+        inicio = obj.fecha_inicio
+        fin = obj.fecha_fin
+        hoy = date.today()
+        periodo = ""
+
+        # 👇 Calculamos si debe mostrarse como finalizado
+        se_finalizo = obj.finalizado or (fin and fin < hoy)
+
+        if inicio and fin and inicio.month == fin.month and inicio.year == fin.year:
+            periodo = f"▸ Periodo: del {inicio.day} al {fin.day} de {inicio.strftime('%B de %Y')}"
+            if se_finalizo:
+                periodo += " (finalizado)"
+        elif inicio and fin:
+            periodo = f"▸ Periodo: del {inicio.strftime('%d de %B')} al {fin.strftime('%d de %B de %Y')}"
+            if se_finalizo:
+                periodo += " (finalizado)"
+        elif inicio and se_finalizo:
+            periodo = f"▸ Periodo: desde el {inicio.strftime('%d de %B de %Y')} (finalizado)"
+        elif inicio and not se_finalizo:
+            periodo = f"▸ Periodo: del {inicio.strftime('%d de %B de %Y')} a la fecha"
+        else:
+            periodo = "▸ Periodo: Sin información"
+
+        frecuencia = f"▸ Frecuencia: {obj.frecuencia}" if obj.frecuencia else ""
+        descripcion = f"▸ Descripción: {obj.descripcion}" if obj.descripcion else ""
+
+        return f"{nombre}\n{via_tipo}\n{periodo}\n{frecuencia}\n{descripcion}".strip()
 
 class HistoriaClinicaPacienteSerializer(serializers.ModelSerializer):
     nombre = serializers.SerializerMethodField()
