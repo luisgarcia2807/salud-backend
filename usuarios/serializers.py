@@ -391,14 +391,18 @@ class DoctorPacienteDetalleSerializer(serializers.ModelSerializer):
 
 from .models import SignosVitales
 
+from rest_framework import serializers
+from .models import SignosVitales
+
 class SignosVitalesSerializer(serializers.ModelSerializer):
     imc = serializers.SerializerMethodField()
     paciente = serializers.PrimaryKeyRelatedField(queryset=Paciente.objects.all())
+    consulta = serializers.PrimaryKeyRelatedField(queryset=Consulta.objects.all(), required=False, allow_null=True)
 
     class Meta:
         model = SignosVitales
         fields = [
-            'id', 'paciente', 'fecha', 'peso', 'altura',
+            'id', 'paciente', 'consulta', 'fecha', 'peso', 'altura',
             'presion_sistolica', 'presion_diastolica',
             'frecuencia_cardiaca', 'frecuencia_respiratoria',
             'temperatura', 'spo2', 'glucosa', 'observaciones', 'imc'
@@ -409,6 +413,7 @@ class SignosVitalesSerializer(serializers.ModelSerializer):
         return obj.imc()
 
     def validate(self, data):
+        # Validar signos vitales obligatorios (ya lo tienes)
         campos_vitales = [
             'peso', 'altura', 'presion_sistolica', 'presion_diastolica',
             'frecuencia_cardiaca', 'frecuencia_respiratoria',
@@ -416,6 +421,15 @@ class SignosVitalesSerializer(serializers.ModelSerializer):
         ]
         if not any(data.get(campo) is not None for campo in campos_vitales):
             raise serializers.ValidationError("Debe registrar al menos un signo vital.")
+
+        # Validar que solo haya un registro por consulta
+        consulta = data.get('consulta', None)
+        if consulta is not None:
+            paciente = data.get('paciente')
+            existe = SignosVitales.objects.filter(consulta=consulta).exists()
+            if existe:
+                raise serializers.ValidationError("Ya existe una toma de signos vitales para esta consulta.")
+
         return data
 
 from .models import Consulta
