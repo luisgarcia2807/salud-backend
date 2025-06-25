@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.db import transaction
 from django.contrib.auth import authenticate
-from .models import Alergia, EnfermedadPersistente, ExamenLabImagenologia, ExamenLaboratorio, GrupoSanguineo, MedicamentoCronico, PacienteAlergia, PacienteEnfermedadPersistente, PacienteMedicamentoCronico, PerfilBebe, Usuario, Paciente, Doctor, Especialidad, EspecialidadDoctor, CentroMedico, DoctorCentro, Vacuna
+from .models import Alergia, EnfermedadPersistente, ExamenFuncional, ExamenLabImagenologia, ExamenLaboratorio, GrupoSanguineo, MedicamentoCronico, PacienteAlergia, PacienteEnfermedadPersistente, PacienteMedicamentoCronico, PerfilBebe, Usuario, Paciente, Doctor, Especialidad, EspecialidadDoctor, CentroMedico, DoctorCentro, Vacuna
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 class UsuarioSerializer(serializers.ModelSerializer):
@@ -421,16 +421,6 @@ class SignosVitalesSerializer(serializers.ModelSerializer):
 from .models import Consulta
 from rest_framework import serializers
 from .serializers import SignosVitalesSerializer, TratamientoActualSerializer
-
-class ConsultaSerializer(serializers.ModelSerializer):
-    signos_vitales = SignosVitalesSerializer(many=True, read_only=True)
-    tratamientos = TratamientoActualSerializer(many=True, read_only=True)
-
-    class Meta:
-        model = Consulta
-        fields = ['id', 'paciente', 'doctor', 'fecha', 'motivo', 'observaciones', 'signos_vitales', 'tratamientos']
-        read_only_fields = ['id', 'fecha']
-
 from .models import DiagnosticoConsulta
 
 class DiagnosticoConsultaSerializer(serializers.ModelSerializer):
@@ -438,6 +428,29 @@ class DiagnosticoConsultaSerializer(serializers.ModelSerializer):
         model = DiagnosticoConsulta
         fields = ['id', 'consulta', 'descripcion', 'es_enfermedad_preexistente']
 
+class ExamenFuncionalSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExamenFuncional
+        fields = [
+            'id', 'consulta', 'general', 'piel', 'cabeza', 'oidos', 'nariz', 'boca',
+            'respiratorio', 'osteomuscular', 'cardiovascular', 'gastrointestinal',
+            'genitourinario', 'nervioso',
+        ]
+        read_only_fields = ['id']
+
+class ConsultaSerializer(serializers.ModelSerializer):
+    signos_vitales = SignosVitalesSerializer(many=True, read_only=True)
+    tratamientos = TratamientoActualSerializer(many=True, read_only=True)
+    diagnosticos = DiagnosticoConsultaSerializer(many=True, read_only=True)
+    examen_funcional = ExamenFuncionalSerializer(read_only=True)  # Añadido para mostrarlo
+
+    class Meta:
+        model = Consulta
+        fields = [
+            'id', 'paciente', 'doctor', 'fecha', 'motivo', 'observaciones',
+            'signos_vitales', 'tratamientos', 'diagnosticos', 'examen_funcional'
+        ]
+        read_only_fields = ['id', 'fecha']
 from rest_framework import serializers
 
 class PacienteAlergiaHistoriaClinicaSerializer(serializers.ModelSerializer):

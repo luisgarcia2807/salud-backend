@@ -1119,6 +1119,50 @@ class HistoriaClinicaPacienteView(APIView):
         serializer = HistoriaClinicaPacienteSerializer(paciente)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from .models import ExamenFuncional
+from .serializers import ExamenFuncionalSerializer
+from django.shortcuts import get_object_or_404
+
+class ExamenFuncionalListCreateView(APIView):
+    def get(self, request):
+        examenes = ExamenFuncional.objects.all()
+        serializer = ExamenFuncionalSerializer(examenes, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        serializer = ExamenFuncionalSerializer(data=request.data)
+        if serializer.is_valid():
+            # Opcional: validar que no exista examen para esta consulta si quieres limitar a uno por consulta
+            consulta_id = serializer.validated_data['consulta'].id
+            if ExamenFuncional.objects.filter(consulta_id=consulta_id).exists():
+                return Response({"error": "Ya existe examen funcional para esta consulta."}, status=status.HTTP_400_BAD_REQUEST)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class ExamenFuncionalDetailView(APIView):
+    def get(self, request, pk):
+        examen = get_object_or_404(ExamenFuncional, pk=pk)
+        serializer = ExamenFuncionalSerializer(examen)
+        return Response(serializer.data)
+
+    def put(self, request, pk):
+        examen = get_object_or_404(ExamenFuncional, pk=pk)
+        serializer = ExamenFuncionalSerializer(examen, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        examen = get_object_or_404(ExamenFuncional, pk=pk)
+        examen.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    
 from django.http import FileResponse, Http404
 from rest_framework.views import APIView
 from rest_framework.response import Response

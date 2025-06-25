@@ -537,3 +537,22 @@ class DiagnosticoConsulta(models.Model):
 
     def __str__(self):
         return f"Diagnóstico en Consulta {self.consulta.id}: {self.descripcion}"
+    
+class ExamenFuncional(models.Model):
+    consulta = models.OneToOneField(Consulta, on_delete=models.CASCADE, related_name='examen_funcional')
+
+    general = models.TextField()
+    piel = models.TextField()
+    cabeza = models.TextField()
+    oidos = models.TextField()
+    nariz = models.TextField()
+    boca = models.TextField()
+    respiratorio = models.TextField()
+    osteomuscular = models.TextField()
+    cardiovascular = models.TextField()
+    gastrointestinal = models.TextField()
+    genitourinario = models.TextField()
+    nervioso = models.TextField()
+
+    def __str__(self):
+        return f"Examen Funcional de Consulta {self.consulta.id}"

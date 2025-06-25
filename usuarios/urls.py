@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import ActivarDoctorView, AlergiasPorPacienteView, BebesPorResponsableView, ConsultaDetailView, ConsultaListCreateView, DatosBasicosPorPacienteView, DescargarHistoriaClinicaWord, DiagnosticoConsultaView, DoctorPacienteViewSet, DoctorPorUsuarioView, DoctoresActivosInactivosView, EnfermedadPersistenteListView, EnfermedadesPorPacienteView, ExamenLaboratorioView, ExamenlabImagenologiaView, GrupoSanguineoListView, HistoriaClinicaIAOpenRouter, HistoriaClinicaPacienteView, ListaAlergias, MedicamentoCronicoListView, PacienteAlergiaViewSet, PacienteEnfermedadPersistenteViewSet, PacienteMedicamentoCronicoViewSet, PacientePorPerfilBebeView, PacientePorUsuarioView, PerfilBebeDetailView, PerfilBebeViewSet, SignosVitalesViewSet, SolicitudesPorDoctorAPIView, SolicitudesPorPacienteAPIView, SubirArchivoSupabase, SubirDocumentoView, SubirImagenPruebaView, TratamientosCronicosPorPacienteView, UsuarioDetailView, UsuarioViewSet, CustomTokenObtainPairView, CustomTokenRefreshView, VacunaListView, VacunaPacienteViewSet, VacunasPorPacienteView, actualizar_foto_perfil, actualizar_tratamiento, buscar_paciente_por_cedula, listar_medicamentos, procesar_documento, proxima_dosis, ultimas_dosis_por_paciente,  obtener_paciente_por_token
+from .views import ActivarDoctorView, AlergiasPorPacienteView, BebesPorResponsableView, ConsultaDetailView, ConsultaListCreateView, DatosBasicosPorPacienteView, DescargarHistoriaClinicaWord, DiagnosticoConsultaView, DoctorPacienteViewSet, DoctorPorUsuarioView, DoctoresActivosInactivosView, EnfermedadPersistenteListView, EnfermedadesPorPacienteView, ExamenFuncionalDetailView, ExamenFuncionalListCreateView, ExamenLaboratorioView, ExamenlabImagenologiaView, GrupoSanguineoListView, HistoriaClinicaIAOpenRouter, HistoriaClinicaPacienteView, ListaAlergias, MedicamentoCronicoListView, PacienteAlergiaViewSet, PacienteEnfermedadPersistenteViewSet, PacienteMedicamentoCronicoViewSet, PacientePorPerfilBebeView, PacientePorUsuarioView, PerfilBebeDetailView, PerfilBebeViewSet, SignosVitalesViewSet, SolicitudesPorDoctorAPIView, SolicitudesPorPacienteAPIView, SubirArchivoSupabase, SubirDocumentoView, SubirImagenPruebaView, TratamientosCronicosPorPacienteView, UsuarioDetailView, UsuarioViewSet, CustomTokenObtainPairView, CustomTokenRefreshView, VacunaListView, VacunaPacienteViewSet, VacunasPorPacienteView, actualizar_foto_perfil, actualizar_tratamiento, buscar_paciente_por_cedula, listar_medicamentos, procesar_documento, proxima_dosis, ultimas_dosis_por_paciente,  obtener_paciente_por_token
 from .views import CentroMedicoListView, EspecialidadListView, DatosBasicosPorTokenView
 from . import views
 
@@ -70,6 +70,8 @@ urlpatterns = [
     path('api/consultas/diagnostico/', DiagnosticoConsultaView.as_view(), name='diagnostico-consulta'),
     path('api/pacientes/<int:paciente_id>/historia-clinica/', HistoriaClinicaPacienteView.as_view(), name='historia-clinica-paciente'),
     path('api/pacientes/<int:id_paciente>/historia-clinica/word/', DescargarHistoriaClinicaWord.as_view()),
+    path('api/examenfuncional/', ExamenFuncionalListCreateView.as_view(), name='examenfuncional-list-create'),
+    path('api/examenfuncional/<int:pk>/', ExamenFuncionalDetailView.as_view(), name='examenfuncional-detail'),
 
 ]
 
