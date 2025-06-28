@@ -526,6 +526,7 @@ class Consulta(models.Model):
     fecha = models.DateTimeField(auto_now_add=True)
     motivo = models.TextField(blank=True, null=True)
     observaciones = models.TextField(blank=True, null=True)
+    sintomas = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return f"Consulta {self.id} - {self.paciente} con {self.doctor} - {self.fecha.strftime('%Y-%m-%d %H:%M')}"

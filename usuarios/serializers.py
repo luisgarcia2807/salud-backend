@@ -473,7 +473,7 @@ class ConsultaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Consulta
         fields = [
-            'id', 'paciente', 'doctor', 'fecha', 'motivo', 'observaciones',
+            'id', 'paciente', 'doctor', 'fecha', 'motivo','sintomas', 'observaciones',
             'signos_vitales', 'tratamientos', 'diagnosticos', 'examen_funcional', 'examen_fisico'
         ]
         read_only_fields = ['id', 'fecha']
