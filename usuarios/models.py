@@ -556,3 +556,28 @@ class ExamenFuncional(models.Model):
 
     def __str__(self):
         return f"Examen Funcional de Consulta {self.consulta.id}"
+
+class ExamenFisico(models.Model):
+    consulta = models.OneToOneField(Consulta, on_delete=models.CASCADE, related_name='examen_fisico')
+
+    general = models.TextField(blank=True, null=True)
+    piel = models.TextField(blank=True, null=True)
+    uñas = models.TextField(blank=True, null=True)
+    cabeza = models.TextField(blank=True, null=True)
+    ojos = models.TextField(blank=True, null=True)
+    nariz = models.TextField(blank=True, null=True)
+    oidos = models.TextField(blank=True, null=True)
+    boca_faringe = models.TextField(blank=True, null=True)
+    cuello = models.TextField(blank=True, null=True)
+    ganglios = models.TextField(blank=True, null=True)
+    torax = models.TextField(blank=True, null=True)
+    pulmones = models.TextField(blank=True, null=True)
+    corazon = models.TextField(blank=True, null=True)
+    abdomen = models.TextField(blank=True, null=True)
+    genitales = models.TextField(blank=True, null=True)
+    recto = models.TextField(blank=True, null=True)
+    osteomuscular = models.TextField(blank=True, null=True)
+    neurologico_psiquico = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"Examen Físico de Consulta {self.consulta.id}"

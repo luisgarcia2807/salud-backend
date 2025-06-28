@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.db import transaction
 from django.contrib.auth import authenticate
-from .models import Consulta, Alergia, EnfermedadPersistente, ExamenFuncional, ExamenLabImagenologia, ExamenLaboratorio, GrupoSanguineo, MedicamentoCronico, PacienteAlergia, PacienteEnfermedadPersistente, PacienteMedicamentoCronico, PerfilBebe, Usuario, Paciente, Doctor, Especialidad, EspecialidadDoctor, CentroMedico, DoctorCentro, Vacuna
+from .models import Consulta, Alergia, EnfermedadPersistente, ExamenFisico, ExamenFuncional, ExamenLabImagenologia, ExamenLaboratorio, GrupoSanguineo, MedicamentoCronico, PacienteAlergia, PacienteEnfermedadPersistente, PacienteMedicamentoCronico, PerfilBebe, Usuario, Paciente, Doctor, Especialidad, EspecialidadDoctor, CentroMedico, DoctorCentro, Vacuna
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 class UsuarioSerializer(serializers.ModelSerializer):
@@ -452,17 +452,29 @@ class ExamenFuncionalSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id']
 
+class ExamenFisicoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExamenFisico
+        fields = [
+            'id', 'consulta', 'general', 'piel', 'uñas', 'cabeza', 'ojos',
+            'nariz', 'oidos', 'boca_faringe', 'cuello', 'ganglios', 'torax', 'pulmones',
+            'corazon', 'abdomen', 'genitales', 'recto', 'osteomuscular', 'neurologico_psiquico',
+        ]
+        read_only_fields = ['id']
+
+
 class ConsultaSerializer(serializers.ModelSerializer):
     signos_vitales = SignosVitalesSerializer(many=True, read_only=True)
     tratamientos = TratamientoActualSerializer(many=True, read_only=True)
     diagnosticos = DiagnosticoConsultaSerializer(many=True, read_only=True)
     examen_funcional = ExamenFuncionalSerializer(read_only=True)  # Añadido para mostrarlo
+    examen_fisico= ExamenFisicoSerializer(read_only=True)
 
     class Meta:
         model = Consulta
         fields = [
             'id', 'paciente', 'doctor', 'fecha', 'motivo', 'observaciones',
-            'signos_vitales', 'tratamientos', 'diagnosticos', 'examen_funcional'
+            'signos_vitales', 'tratamientos', 'diagnosticos', 'examen_funcional', 'examen_fisico'
         ]
         read_only_fields = ['id', 'fecha']
 from rest_framework import serializers

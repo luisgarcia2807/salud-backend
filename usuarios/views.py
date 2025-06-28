@@ -1162,6 +1162,45 @@ class ExamenFuncionalDetailView(APIView):
         examen.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+
+from .models import ExamenFisico
+from .serializers import ExamenFisicoSerializer
+
+class ExamenFisicoListCreateView(APIView):
+    def get(self, request):
+        examenes = ExamenFisico.objects.all()
+        serializer = ExamenFisicoSerializer(examenes, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        serializer = ExamenFisicoSerializer(data=request.data)
+        if serializer.is_valid():
+            consulta_id = serializer.validated_data['consulta'].id
+            if ExamenFisico.objects.filter(consulta_id=consulta_id).exists():
+                return Response({"error": "Ya existe examen físico para esta consulta."}, status=status.HTTP_400_BAD_REQUEST)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class ExamenFisicoDetailView(APIView):
+    def get(self, request, pk):
+        examen = get_object_or_404(ExamenFisico, pk=pk)
+        serializer = ExamenFisicoSerializer(examen)
+        return Response(serializer.data)
+
+    def put(self, request, pk):
+        examen = get_object_or_404(ExamenFisico, pk=pk)
+        serializer = ExamenFisicoSerializer(examen, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        examen = get_object_or_404(ExamenFisico, pk=pk)
+        examen.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     
 from django.http import FileResponse, Http404
 from rest_framework.views import APIView
