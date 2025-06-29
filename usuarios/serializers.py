@@ -440,7 +440,7 @@ from .models import DiagnosticoConsulta
 class DiagnosticoConsultaSerializer(serializers.ModelSerializer):
     class Meta:
         model = DiagnosticoConsulta
-        fields = ['id', 'consulta', 'descripcion', 'es_enfermedad_preexistente']
+        fields = ['id', 'consulta', 'descripcion']
 
 class ExamenFuncionalSerializer(serializers.ModelSerializer):
     class Meta:

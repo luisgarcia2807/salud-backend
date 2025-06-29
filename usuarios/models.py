@@ -532,12 +532,13 @@ class Consulta(models.Model):
         return f"Consulta {self.id} - {self.paciente} con {self.doctor} - {self.fecha.strftime('%Y-%m-%d %H:%M')}"
 
 class DiagnosticoConsulta(models.Model):
-    consulta = models.ForeignKey(Consulta, on_delete=models.CASCADE, related_name='diagnosticos')
+    consulta = models.OneToOneField(Consulta, on_delete=models.CASCADE, related_name='diagnostico')
     descripcion = models.CharField(max_length=255)
-    es_enfermedad_preexistente = models.BooleanField(default=False)
+    
 
     def __str__(self):
         return f"Diagnóstico en Consulta {self.consulta.id}: {self.descripcion}"
+
     
 class ExamenFuncional(models.Model):
     consulta = models.OneToOneField(Consulta, on_delete=models.CASCADE, related_name='examen_funcional')
