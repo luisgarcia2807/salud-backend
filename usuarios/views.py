@@ -1217,6 +1217,23 @@ from datetime import datetime
 from .models import Paciente
 from .serializers import HistoriaClinicaPacienteSerializer  # tu serializer completo
 
+from django.http import FileResponse, Http404
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import permissions
+from django.conf import settings
+from docx import Document
+from docx.shared import Pt, Inches
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+import os
+import tempfile
+from datetime import datetime
+from collections import defaultdict
+
+# Suponiendo que tienes el modelo Paciente y relaciones necesarias
+from .models import Paciente
+from .serializers import HistoriaClinicaPacienteSerializer
+
 class DescargarHistoriaClinicaWord(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -1243,155 +1260,554 @@ class DescargarHistoriaClinicaWord(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=500)
 
+    def format_date(self, date_string):
+        """Formatea la fecha para mostrarla en español"""
+        if not date_string:
+            return "No registrado"
+        try:
+            if 'T' in str(date_string):
+                date_obj = datetime.fromisoformat(str(date_string).replace('Z', '+00:00'))
+            else:
+                date_obj = datetime.strptime(str(date_string), '%Y-%m-%d')
+            
+            # Nombres de meses en español
+            meses = [
+                'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+                'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+            ]
+            
+            dia = date_obj.day
+            mes = meses[date_obj.month - 1]
+            año = date_obj.year
+            
+            return f"{dia} de {mes} de {año}"
+        except:
+            return "No registrado"
+
+    def set_font_style(self, paragraph, font_name="Times New Roman", font_size=12):
+        """Establece el estilo de fuente para un párrafo"""
+        for run in paragraph.runs:
+            run.font.name = font_name
+            run.font.size = Pt(font_size)
+
+    def add_field_with_label(self, paragraph, label, value, default_text="No registrado"):
+        """Agrega un campo con etiqueta en negrita y valor"""
+        if not value or (isinstance(value, str) and value.strip() == ''):
+            value = default_text
+        
+        # Etiqueta en negrita
+        run_label = paragraph.add_run(f"{label}: ")
+        run_label.bold = True
+        run_label.font.name = "Times New Roman"
+        run_label.font.size = Pt(12)
+        
+        # Valor normal
+        run_value = paragraph.add_run(str(value))
+        run_value.font.name = "Times New Roman"
+        run_value.font.size = Pt(12)
+        return paragraph
+
+    def add_page_break(self, doc):
+        """Agrega un salto de página"""
+        doc.add_page_break()
+
+    def generar_seccion_consultas(self, doc, consultas_data):
+        """Genera una sección completa y elegante de consultas médicas"""
+        
+        # Salto de página antes de consultas
+        self.add_page_break(doc)
+        
+        heading = doc.add_heading('Consultas Médicas', level=1)
+        self.set_font_style(heading, "Times New Roman", 14)
+        
+        if not consultas_data or len(consultas_data) == 0:
+            p = doc.add_paragraph("No se registran consultas médicas para este paciente.")
+            self.set_font_style(p)
+            p.paragraph_format.space_after = Pt(12)
+            return
+        
+        # Agregar resumen
+        p_resumen = doc.add_paragraph()
+        run_resumen = p_resumen.add_run(f"Total de consultas registradas: {len(consultas_data)}")
+        run_resumen.bold = True
+        run_resumen.font.name = "Times New Roman"
+        run_resumen.font.size = Pt(12)
+        p_resumen.paragraph_format.space_after = Pt(12)
+        
+        # Procesar cada consulta (más reciente primero, numeración descendente)
+        total_consultas = len(consultas_data)
+        for i, consulta in enumerate(consultas_data):
+            numero_consulta = total_consultas - i  # Numeración descendente
+            
+            # Encabezado de consulta
+            consulta_header = doc.add_heading(f'Consulta #{numero_consulta}', level=2)
+            self.set_font_style(consulta_header, "Times New Roman", 13)
+            consulta_header.paragraph_format.space_before = Pt(16)
+            
+            # Información básica
+            p_info = doc.add_paragraph()
+            self.add_field_with_label(p_info, "Fecha", self.format_date(consulta.get('fecha', '')))
+            p_info.add_run('\n')
+            self.add_field_with_label(p_info, "Motivo de Consulta", consulta.get('motivo', 'No registrado'))
+            p_info.add_run('\n')
+            self.add_field_with_label(p_info, "Síntomas", consulta.get('sintomas', 'No registrado'))
+            p_info.paragraph_format.space_after = Pt(8)
+            
+            # Signos Vitales de la consulta
+            signos_vitales = consulta.get('signos_vitales', [])
+            p_signos = doc.add_paragraph()
+            run_signos = p_signos.add_run("Signos Vitales:")
+            run_signos.bold = True
+            run_signos.underline = True
+            run_signos.font.name = "Times New Roman"
+            run_signos.font.size = Pt(12)
+            p_signos.add_run('\n')
+            
+            if not signos_vitales:
+                run_no_signos = p_signos.add_run("   No se registraron signos vitales en esta consulta")
+                run_no_signos.font.name = "Times New Roman"
+                run_no_signos.font.size = Pt(12)
+            else:
+                for signo in signos_vitales:
+                    run_signo = p_signos.add_run(f"   {signo if signo else 'No registrado'}\n")
+                    run_signo.font.name = "Times New Roman"
+                    run_signo.font.size = Pt(12)
+            p_signos.paragraph_format.space_after = Pt(8)
+            
+            # Examen Funcional
+            examen_funcional = consulta.get('examen_funcional')
+            if examen_funcional:
+                p_func = doc.add_paragraph()
+                run_func = p_func.add_run("Examen Funcional por Sistemas:")
+                run_func.bold = True
+                run_func.underline = True
+                run_func.font.name = "Times New Roman"
+                run_func.font.size = Pt(12)
+                p_func.paragraph_format.space_after = Pt(4)
+                
+                sistemas = [
+                    ('General', examen_funcional.get('general')),
+                    ('Piel', examen_funcional.get('piel')),
+                    ('Cabeza', examen_funcional.get('cabeza')),
+                    ('Oídos', examen_funcional.get('oidos')),
+                    ('Nariz', examen_funcional.get('nariz')),
+                    ('Boca', examen_funcional.get('boca')),
+                    ('Respiratorio', examen_funcional.get('respiratorio')),
+                    ('Cardiovascular', examen_funcional.get('cardiovascular')),
+                    ('Gastrointestinal', examen_funcional.get('gastrointestinal')),
+                    ('Genitourinario', examen_funcional.get('genitourinario')),
+                    ('Osteomuscular', examen_funcional.get('osteomuscular')),
+                    ('Nervioso', examen_funcional.get('nervioso'))
+                ]
+                
+                for sistema, evaluacion in sistemas:
+                    if evaluacion and evaluacion.strip():
+                        p = doc.add_paragraph()
+                        p.paragraph_format.left_indent = Inches(0.3)
+                        self.add_field_with_label(p, f"{sistema}", evaluacion)
+            else:
+                p = doc.add_paragraph()
+                run_no_func = p.add_run("Examen Funcional: No registrado")
+                run_no_func.font.name = "Times New Roman"
+                run_no_func.font.size = Pt(12)
+                p.paragraph_format.space_after = Pt(4)
+            
+            # Examen Físico
+            examen_fisico = consulta.get('examen_fisico')
+            if examen_fisico:
+                p_fisico = doc.add_paragraph()
+                run_fisico = p_fisico.add_run("Examen Físico:")
+                run_fisico.bold = True
+                run_fisico.underline = True
+                run_fisico.font.name = "Times New Roman"
+                run_fisico.font.size = Pt(12)
+                p_fisico.paragraph_format.space_after = Pt(4)
+                
+                regiones = [
+                    ('Aspecto General', examen_fisico.get('general')),
+                    ('Piel', examen_fisico.get('piel')),
+                    ('Uñas', examen_fisico.get('uñas')),
+                    ('Cabeza', examen_fisico.get('cabeza')),
+                    ('Ojos', examen_fisico.get('ojos')),
+                    ('Nariz', examen_fisico.get('nariz')),
+                    ('Oídos', examen_fisico.get('oidos')),
+                    ('Boca y Faringe', examen_fisico.get('boca_faringe')),
+                    ('Cuello', examen_fisico.get('cuello')),
+                    ('Ganglios', examen_fisico.get('ganglios')),
+                    ('Tórax', examen_fisico.get('torax')),
+                    ('Pulmones', examen_fisico.get('pulmones')),
+                    ('Corazón', examen_fisico.get('corazon')),
+                    ('Abdomen', examen_fisico.get('abdomen')),
+                    ('Genitales', examen_fisico.get('genitales')),
+                    ('Recto', examen_fisico.get('recto')),
+                    ('Osteomuscular', examen_fisico.get('osteomuscular')),
+                    ('Neurológico/Psíquico', examen_fisico.get('neurologico_psiquico'))
+                ]
+                
+                for region, hallazgo in regiones:
+                    if hallazgo and hallazgo.strip():
+                        p = doc.add_paragraph()
+                        p.paragraph_format.left_indent = Inches(0.3)
+                        self.add_field_with_label(p, f"{region}", hallazgo)
+            else:
+                p = doc.add_paragraph()
+                run_no_fisico = p.add_run("Examen Físico: No registrado")
+                run_no_fisico.font.name = "Times New Roman"
+                run_no_fisico.font.size = Pt(12)
+                p.paragraph_format.space_after = Pt(4)
+            
+            # Diagnóstico
+            diagnostico = consulta.get('diagnostico')
+            p_diag = doc.add_paragraph()
+            run_diag = p_diag.add_run("Diagnóstico: ")
+            run_diag.bold = True
+            run_diag.font.name = "Times New Roman"
+            run_diag.font.size = Pt(12)
+            if diagnostico and diagnostico.get('descripcion'):
+                run_valor = p_diag.add_run(diagnostico['descripcion'])
+                run_valor.italic = True
+                run_valor.font.name = "Times New Roman"
+                run_valor.font.size = Pt(12)
+            else:
+                run_no_diag = p_diag.add_run("No registrado")
+                run_no_diag.font.name = "Times New Roman"
+                run_no_diag.font.size = Pt(12)
+            p_diag.paragraph_format.space_after = Pt(8)
+            
+            # Tratamiento
+            tratamientos = consulta.get('mensaje_tratamientos', '')
+            p_trat = doc.add_paragraph()
+            run_trat = p_trat.add_run("Tratamiento Prescrito:")
+            run_trat.bold = True
+            run_trat.underline = True
+            run_trat.font.name = "Times New Roman"
+            run_trat.font.size = Pt(12)
+            p_trat.add_run('\n')
+            
+            if not tratamientos or tratamientos.strip() == '':
+                run_no_trat = p_trat.add_run("   No registrado")
+                run_no_trat.font.name = "Times New Roman"
+                run_no_trat.font.size = Pt(12)
+            else:
+                # Separar múltiples tratamientos
+                if '. ' in tratamientos:
+                    tratamientos_lista = tratamientos.split('. ')
+                else:
+                    tratamientos_lista = [tratamientos]
+                
+                for j, tratamiento in enumerate(tratamientos_lista, 1):
+                    if tratamiento.strip():
+                        run_trat_item = p_trat.add_run(f"   {j}. {tratamiento.strip()}\n")
+                        run_trat_item.font.name = "Times New Roman"
+                        run_trat_item.font.size = Pt(12)
+            p_trat.paragraph_format.space_after = Pt(8)
+            
+            # Observaciones
+            observaciones = consulta.get('observaciones', '')
+            p_obs = doc.add_paragraph()
+            run_obs = p_obs.add_run("Observaciones y Recomendaciones: ")
+            run_obs.bold = True
+            run_obs.font.name = "Times New Roman"
+            run_obs.font.size = Pt(12)
+            if observaciones and observaciones.strip():
+                run_obs_text = p_obs.add_run(observaciones)
+                run_obs_text.font.name = "Times New Roman"
+                run_obs_text.font.size = Pt(12)
+            else:
+                run_no_obs = p_obs.add_run("No registrado")
+                run_no_obs.font.name = "Times New Roman"
+                run_no_obs.font.size = Pt(12)
+            
+            # Línea separadora entre consultas (excepto la última)
+            if i < len(consultas_data) - 1:
+                separator = doc.add_paragraph("─" * 80)
+                separator.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                separator.paragraph_format.space_before = Pt(12)
+                separator.paragraph_format.space_after = Pt(12)
+                self.set_font_style(separator)
+
     def generar_word(self, data, filepath):
         doc = Document()
-        doc.add_heading('Historia Clínica del Paciente', 0)
+        
+        # Título principal
+        title = doc.add_heading('Historia Clínica del Paciente', 0)
+        self.set_font_style(title, "Times New Roman", 16)
 
-        doc.add_heading('Datos del Paciente', level=1)
-        doc.add_paragraph(f"ID: {data['id_paciente']}")
-        doc.add_paragraph(f"Nombre: {data['nombre']} {data['apellido']}")
-        doc.add_paragraph(f"Tipo de Sangre: {data['tipo_sangre']}")
+        # Datos del Paciente
+        heading1 = doc.add_heading('Datos del Paciente', level=1)
+        self.set_font_style(heading1, "Times New Roman", 14)
+        
+        p1 = doc.add_paragraph(f"Nombre: {data.get('nombre', 'No registrado')} {data.get('apellido', '')}")
+        self.set_font_style(p1)
+        p2 = doc.add_paragraph(f"Tipo de Sangre: {data.get('tipo_sangre', 'No registrado')}")
+        self.set_font_style(p2)
+        p3 = doc.add_paragraph(f"Cédula de identidad: {data.get('cedula', 'No registrado')}")
+        self.set_font_style(p3)
+        p4 = doc.add_paragraph(f"Edad: {data.get('edad', 'No registrado')}")
+        self.set_font_style(p4)
+        p5 = doc.add_paragraph(f"Sexo: {data.get('sexo', 'No registrado')}")
+        self.set_font_style(p5)
+        p6 = doc.add_paragraph(f"Número de teléfono: {data.get('telefono', 'No registrado')}")
+        self.set_font_style(p6)
+        p7 = doc.add_paragraph(f"Nacionalidad: {data.get('nacionalidad', 'No registrado')}")
+        self.set_font_style(p7)
 
-        doc.add_heading('Consultas Médicas', level=1)
-        for consulta in data['consultas']:
-            doc.add_paragraph(f"- Fecha: {consulta['fecha']}")
-            doc.add_paragraph(f"  Motivo: {consulta['motivo']}")
-            doc.add_paragraph(f"  Observaciones: {consulta['observaciones']}")
+        # Signos Vitales
+        sv = data.get('signos_vitales')
+        heading2 = doc.add_heading('Última toma de Signos Vitales', level=1)
+        self.set_font_style(heading2, "Times New Roman", 14)
+        if sv:
+            p_sv1 = doc.add_paragraph(f"Fecha: {self.format_date(sv.get('fecha', ''))}")
+            self.set_font_style(p_sv1)
+            p_sv2 = doc.add_paragraph(f"Peso: {sv.get('peso', 'No registrado')} kg")
+            self.set_font_style(p_sv2)
+            p_sv3 = doc.add_paragraph(f"Altura: {sv.get('altura', 'No registrado')} m")
+            self.set_font_style(p_sv3)
+            p_sv4 = doc.add_paragraph(f"IMC: {sv.get('imc', 'No registrado')}")
+            self.set_font_style(p_sv4)
+            p_sv5 = doc.add_paragraph(f"Presión arterial: {sv.get('presion_sistolica', 'No registrado')}/{sv.get('presion_diastolica', 'No registrado')} mmHg")
+            self.set_font_style(p_sv5)
+            p_sv6 = doc.add_paragraph(f"Frecuencia cardíaca: {sv.get('frecuencia_cardiaca', 'No registrado')} lpm")
+            self.set_font_style(p_sv6)
+            p_sv7 = doc.add_paragraph(f"Temperatura: {sv.get('temperatura', 'No registrado')} °C")
+            self.set_font_style(p_sv7)
+            p_sv8 = doc.add_paragraph(f"Glucosa: {sv.get('glucosa', 'No registrado')} mg/dL")
+            self.set_font_style(p_sv8)
+            p_sv9 = doc.add_paragraph(f"Saturación O₂: {sv.get('spo2', 'No registrado')}%")
+            self.set_font_style(p_sv9)
+            p_sv10 = doc.add_paragraph(f"Observaciones: {sv.get('observaciones', 'No registrado')}")
+            self.set_font_style(p_sv10)
+        else:
+            p_no_sv = doc.add_paragraph("No se han registrado signos vitales para este paciente.")
+            self.set_font_style(p_no_sv)
 
-        sv = data['signos_vitales']
-        doc.add_heading('Signos Vitales', level=1)
-        doc.add_paragraph(f"Fecha: {sv['fecha']}")
-        doc.add_paragraph(f"Peso: {sv['peso']} kg")
-        doc.add_paragraph(f"Altura: {sv['altura']} m")
-        doc.add_paragraph(f"IMC: {sv['imc']}")
-        doc.add_paragraph(f"Presión arterial: {sv['presion_sistolica']}/{sv['presion_diastolica']} mmHg")
-        doc.add_paragraph(f"Frecuencia cardíaca: {sv['frecuencia_cardiaca']} lpm")
-        doc.add_paragraph(f"Temperatura: {sv['temperatura']} °C")
-        doc.add_paragraph(f"Glucosa: {sv['glucosa']} mg/dL")
-        doc.add_paragraph(f"Saturación O₂: {sv['spo2']}%")
-        doc.add_paragraph(f"Observaciones: {sv['observaciones']}")
+        # NUEVA PÁGINA - Tratamientos Actuales
+        self.add_page_break(doc)
+        heading3 = doc.add_heading("Tratamientos Actuales", level=1)
+        self.set_font_style(heading3, "Times New Roman", 14)
+        tratamientos_actuales = data.get('tratamientos_actuales', [])
+        if tratamientos_actuales:
+            for t in tratamientos_actuales:
+                texto = t.get('texto_formateado')
+                if texto:
+                    parrafo = doc.add_paragraph()
+                    for i, line in enumerate(texto.split('\n')):
+                        run = parrafo.add_run(line + '\n')
+                        run.font.name = "Times New Roman"
+                        run.font.size = Pt(12)
+                        if i == 0:
+                            run.bold = True
+        else:
+            p_no_trat = doc.add_paragraph("No se registran tratamientos actuales.")
+            self.set_font_style(p_no_trat)
 
-        doc.add_heading("Tratamientos Actuales", level=1)
-        for t in data['tratamientos_actuales']:
-            texto = t.get('texto_formateado')
-            if texto:
-                parrafo = doc.add_paragraph()
-                for i, line in enumerate(texto.split('\n')):
-                    run = parrafo.add_run(line + '\n')
-                    if i == 0:
-                        run.bold = True  # Solo el primer renglón (nombre) en negrita
-        from docx.shared import Pt
+        # NUEVA PÁGINA - Alergias conocidas
+        self.add_page_break(doc)
+        heading4 = doc.add_heading('Alergias conocidas', level=1)
+        self.set_font_style(heading4, "Times New Roman", 14)
+        alergias = data.get('alergias', [])
+        if alergias:
+            for a in alergias:
+                nombre = a.get('nombre_alergia', 'No registrado')
+                tipo = a.get('tipo_alergia', 'No registrado')
+                gravedad = a.get('gravedad', 'No registrado')
+                observacion = a.get('observacion', '')
 
-        doc.add_heading('Alergias', level=1)
+                p = doc.add_paragraph()
+                run = p.add_run(f"{nombre} ({tipo})\n")
+                run.bold = True
+                run.font.name = "Times New Roman"
+                run.font.size = Pt(12)
 
-        for a in data['alergias']:
-            nombre = a.get('nombre_alergia', 'Desconocida')
-            tipo = a.get('tipo_alergia', 'Desconocido')
-            gravedad = a.get('gravedad', 'No especificada')
-            observacion = a.get('observacion', '')
+                run2 = p.add_run(f"Gravedad: {gravedad}\n")
+                run2.font.name = "Times New Roman"
+                run2.font.size = Pt(12)
 
-    # Crear párrafo y agregar nombre y tipo en negrita
-            p = doc.add_paragraph()
-            run = p.add_run(f"{nombre} ({tipo})\n")
-            run.bold = True
+                if observacion and observacion.strip():
+                    run3 = p.add_run(f"Observación: {observacion}\n")
+                    run3.font.name = "Times New Roman"
+                    run3.font.size = Pt(12)
+                else:
+                    run3 = p.add_run(f"Observación: No registrado\n")
+                    run3.font.name = "Times New Roman"
+                    run3.font.size = Pt(12)
 
-    # Línea con gravedad
-            p.add_run(f"▸ Gravedad: {gravedad}\n")
+                p.paragraph_format.space_after = Pt(8)
+        else:
+            p_no_alerg = doc.add_paragraph("No se registran alergias conocidas.")
+            self.set_font_style(p_no_alerg)
 
-    # Línea con observación solo si existe
-            if observacion:
-                p.add_run(f"▸ Observación: {observacion}\n")
+        # NUEVA PÁGINA - Enfermedades Preexistentes
+        self.add_page_break(doc)
+        heading5 = doc.add_heading('Enfermedades Preexistentes', level=1)
+        self.set_font_style(heading5, "Times New Roman", 14)
+        enfermedades = data.get('enfermedades_persistentes', [])
+        if enfermedades:
+            for e in enfermedades:
+                nombre = e.get('nombre', 'No registrado')
+                tipo = e.get('tipo', 'No registrado')
+                fecha = e.get('fecha_diagnostico', '')
+                observacion = e.get('observacion', '')
 
-    # Espacio después del párrafo para buena separación
-            p.paragraph_format.space_after = Pt(8)
+                p = doc.add_paragraph()
+                run = p.add_run(f"{nombre} ({tipo})\n")
+                run.bold = True
+                run.font.name = "Times New Roman"
+                run.font.size = Pt(12)
 
+                run2 = p.add_run(f"Diagnóstico desde: {self.format_date(fecha)}\n")
+                run2.font.name = "Times New Roman"
+                run2.font.size = Pt(12)
 
+                if observacion and observacion.strip():
+                    run3 = p.add_run(f"Observación: {observacion}\n")
+                    run3.font.name = "Times New Roman"
+                    run3.font.size = Pt(12)
+                else:
+                    run3 = p.add_run(f"Observación: No registrado\n")
+                    run3.font.name = "Times New Roman"
+                    run3.font.size = Pt(12)
 
-        doc.add_heading('Enfermedades Persistentes', level=1)
+                p.paragraph_format.space_after = Pt(8)
+        else:
+            p_no_enf = doc.add_paragraph("No se registran enfermedades preexistentes.")
+            self.set_font_style(p_no_enf)
 
-        for e in data['enfermedades_persistentes']:
-            nombre = e.get('nombre', 'Desconocida')
-            tipo = e.get('tipo', 'Desconocido')
-            fecha = e.get('fecha_diagnostico', 'Fecha no disponible')
-            observacion = e.get('observacion', '')
+        # NUEVA PÁGINA - Vacunas
+        self.add_page_break(doc)
+        heading6 = doc.add_heading('Vacunas', level=1)
+        self.set_font_style(heading6, "Times New Roman", 14)
+        vacunas = data.get('vacunas', [])
+        if vacunas:
+            vacunas_agrupadas = defaultdict(list)
+            for v in vacunas:
+                nombre = v.get('nombre_vacuna', 'No registrado')
+                dosis = v.get('dosis', 'No registrado')
+                fecha = v.get('fecha_aplicacion', '')
+                observacion = v.get('observacion', '')
+                vacunas_agrupadas[nombre].append({
+                    'dosis': dosis,
+                    'fecha': fecha,
+                    'observacion': observacion
+                })
 
-            p = doc.add_paragraph()
-            run = p.add_run(f"{nombre} ({tipo})\n")
-            run.bold = True
+            for nombre, detalles in vacunas_agrupadas.items():
+                p = doc.add_paragraph()
+                run = p.add_run(f"{nombre}\n")
+                run.bold = True
+                run.font.name = "Times New Roman"
+                run.font.size = Pt(12)
 
-            p.add_run(f"▸ Diagnóstico desde: {fecha}\n")
+                for det in detalles:
+                    dosis = det['dosis']
+                    fecha = self.format_date(det['fecha'])
+                    run2 = p.add_run(f"Dosis: {dosis} – Fecha: {fecha}\n")
+                    run2.font.name = "Times New Roman"
+                    run2.font.size = Pt(12)
 
-            if observacion:
-                p.add_run(f"▸ Observación: {observacion}\n")
+                observaciones = {d['observacion'] for d in detalles if d['observacion'] and d['observacion'].strip()}
+                if observaciones:
+                    run3 = p.add_run(f"Observación: {', '.join(observaciones)}\n")
+                    run3.font.name = "Times New Roman"
+                    run3.font.size = Pt(12)
+                else:
+                    run3 = p.add_run(f"Observación: No registrado\n")
+                    run3.font.name = "Times New Roman"
+                    run3.font.size = Pt(12)
 
-            p.paragraph_format.space_after = Pt(8)
+                p.paragraph_format.space_after = Pt(8)
+        else:
+            p_no_vac = doc.add_paragraph("No se registran vacunas aplicadas.")
+            self.set_font_style(p_no_vac)
 
-        from collections import defaultdict
+        # NUEVA PÁGINA - Medicamentos Frecuentes
+        self.add_page_break(doc)
+        heading7 = doc.add_heading('Medicamentos Frecuentes', level=1)
+        self.set_font_style(heading7, "Times New Roman", 14)
+        medicamentos = data.get('medicamentos_cronicos', [])
+        if medicamentos:
+            for m in medicamentos:
+                p = doc.add_paragraph()
+                run = p.add_run(f"{m.get('nombre', 'No registrado')}\n")
+                run.bold = True
+                run.font.name = "Times New Roman"
+                run.font.size = Pt(12)
+                
+                dosis = m.get('dosis', '')
+                if dosis and dosis.strip():
+                    run2 = p.add_run(f"Dosis: {dosis}\n")
+                else:
+                    run2 = p.add_run(f"Dosis: No registrado\n")
+                run2.font.name = "Times New Roman"
+                run2.font.size = Pt(12)
+                
+                frecuencia = m.get('frecuencia', '')
+                if frecuencia and frecuencia.strip():
+                    run3 = p.add_run(f"Frecuencia: {frecuencia}\n")
+                else:
+                    run3 = p.add_run(f"Frecuencia: No registrado\n")
+                run3.font.name = "Times New Roman"
+                run3.font.size = Pt(12)
+                
+                observaciones = m.get('observaciones', '')
+                if observaciones and observaciones.strip():
+                    run4 = p.add_run(f"Observación: {observaciones}\n")
+                else:
+                    run4 = p.add_run(f"Observación: No registrado\n")
+                run4.font.name = "Times New Roman"
+                run4.font.size = Pt(12)
+                
+                p.paragraph_format.space_after = Pt(8)
+        else:
+            p_no_med = doc.add_paragraph("No se registran medicamentos frecuentes.")
+            self.set_font_style(p_no_med)
 
+        # NUEVA PÁGINA - Exámenes de Laboratorio
+        self.add_page_break(doc)
 
-        doc.add_heading('Vacunas', level=1)
-        vacunas_agrupadas = defaultdict(list)
-        for v in data['vacunas']:
-            nombre = v.get('nombre_vacuna', 'Vacuna desconocida')
-            dosis = v.get('dosis', '')
-            fecha = v.get('fecha_aplicacion', '')
-            observacion = v.get('observacion', '')
-            vacunas_agrupadas[nombre].append({
-                'dosis': dosis,
-                'fecha': fecha,
-                'observacion': observacion
-    })
+        # Exámenes de Laboratorio
+        heading8 = doc.add_heading('Exámenes de Laboratorio', level=1)
+        self.set_font_style(heading8, "Times New Roman", 14)
+        examenes_lab = data.get('examenes_laboratorio', [])
+        if examenes_lab:
+            for e in examenes_lab:
+                p = doc.add_paragraph()
+                run = p.add_run(f"{e.get('nombre_examen', 'Examen no especificado')}\n")
+                run.bold = True
+                run.font.name = "Times New Roman"
+                run.font.size = Pt(12)
+                run2 = p.add_run(f"Categoría: {e.get('categoria', 'No especificada')} – Fecha: {self.format_date(e.get('fecha_realizacion', ''))}\n")
+                run2.font.name = "Times New Roman"
+                run2.font.size = Pt(12)
+                p.paragraph_format.space_after = Pt(8)
+        else:
+            p_no_lab = doc.add_paragraph("No se registran exámenes de laboratorio.")
+            self.set_font_style(p_no_lab)
 
-# Ahora imprimir agrupado
-        for nombre, detalles in vacunas_agrupadas.items():
-            p = doc.add_paragraph()
-            run = p.add_run(f"{nombre}\n")
-            run.bold = True
+        # Imagenología
+        self.add_page_break(doc)
+        heading9 = doc.add_heading('Imagenología', level=1)
+        self.set_font_style(heading9, "Times New Roman", 14)
+        examenes_img = data.get('examenes_imagenologia', [])
+        if examenes_img:
+            for e in examenes_img:
+                p = doc.add_paragraph()
+                run = p.add_run(f"{e.get('nombre_examen', 'Examen no especificado')}\n")
+                run.bold = True
+                run.font.name = "Times New Roman"
+                run.font.size = Pt(12)
+                run2 = p.add_run(f"Categoría: {e.get('categoria', 'No especificada')} – Fecha: {self.format_date(e.get('fecha_realizacion', ''))}\n")
+                run2.font.name = "Times New Roman"
+                run2.font.size = Pt(12)
+                p.paragraph_format.space_after = Pt(8)
+        else:
+            p_no_img = doc.add_paragraph("No se registran estudios de imagenología.")
+            self.set_font_style(p_no_img)
 
-            for det in detalles:
-                dosis = det['dosis']
-                fecha = det['fecha']
-                p.add_run(f"▸ Dosis: {dosis} – Fecha: {fecha}\n")
-
-    # Tomar la observación de la primera o concatenar todas (ajusta según necesidad)
-            observaciones = {d['observacion'] for d in detalles if d['observacion']}
-            if observaciones:
-                p.add_run(f"▸ Observación: {', '.join(observaciones)}\n")
-
-            p.paragraph_format.space_after = Pt(8)
-
-        from docx.shared import Pt
-
-# Medicamentos Crónicos
-        doc.add_heading('Medicamentos Crónicos', level=1)
-        for m in data['medicamentos_cronicos']:
-            p = doc.add_paragraph()
-            run = p.add_run(f"{m['nombre']}\n")
-            run.bold = True
-            if m.get('dosis'):
-                p.add_run(f"▸ Dosis: {m['dosis']}\n")
-            if m.get('frecuencia'):
-                p.add_run(f"▸ Frecuencia: {m['frecuencia']}\n")
-            if m.get('observaciones'):
-                p.add_run(f"▸ Observación: {m['observaciones']}\n")
-            p.paragraph_format.space_after = Pt(8)
-
-# Exámenes de Laboratorio
-        doc.add_heading('Exámenes de Laboratorio', level=1)
-        for e in data['examenes_laboratorio']:
-            p = doc.add_paragraph()
-            run = p.add_run(f"{e['nombre_examen']}\n")
-            run.bold = True
-            p.add_run(f"▸ Categoría: {e['categoria']} – Fecha: {e['fecha_realizacion']}\n")
-            p.paragraph_format.space_after = Pt(8)
-
-# Imagenología
-        doc.add_heading('Imagenología', level=1)
-        for e in data['examenes_imagenologia']:
-            p = doc.add_paragraph()
-            run = p.add_run(f"{e['nombre_examen']}\n")
-            run.bold = True
-            p.add_run(f"▸ Categoría: {e['categoria']} – Fecha: {e['fecha_realizacion']}\n")
-            p.paragraph_format.space_after = Pt(8)
+        # Consultas Médicas - AHORA AL FINAL
+        self.generar_seccion_consultas(doc, data.get('consultas', []))
 
         doc.save(filepath)
+
+
+

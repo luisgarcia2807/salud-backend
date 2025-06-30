@@ -441,6 +441,7 @@ class DiagnosticoConsultaSerializer(serializers.ModelSerializer):
     class Meta:
         model = DiagnosticoConsulta
         fields = ['id', 'consulta', 'descripcion']
+        read_only_fields = ['id']
 
 class ExamenFuncionalSerializer(serializers.ModelSerializer):
     class Meta:
@@ -462,21 +463,88 @@ class ExamenFisicoSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id']
 
+class TratamientoDesdeConsultaSerializer(serializers.Serializer):
+    medicamento_id = serializers.IntegerField()
+    descripcion = serializers.CharField(required=False, allow_blank=True)
+    fecha_inicio = serializers.DateField()
+    fecha_fin = serializers.DateField(required=False, allow_null=True)
+    frecuencia = serializers.CharField(required=False, allow_blank=True)
+    
+    medicamento_nombre = serializers.SerializerMethodField()
+    mensaje = serializers.SerializerMethodField()
+
+    def get_medicamento_nombre(self, obj):
+        # obj puede ser dict o instancia, según contexto
+        if isinstance(obj, dict):
+            # En creación (dict), no tenemos el objeto medicamento, solo el id
+            return "Medicamento #" + str(obj.get('medicamento_id', ''))
+        else:
+            # En lectura (obj modelo), obtenemos nombre real
+            return obj.medicamento.nombre_comercial if obj.medicamento else "Medicamento desconocido"
+
+    def get_mensaje(self, obj):
+        if isinstance(obj, dict):
+            nombre = self.get_medicamento_nombre(obj)
+            descripcion = obj.get('descripcion', '')
+            frecuencia = obj.get('frecuencia', '')
+        else:
+            nombre = obj.medicamento.nombre_comercial if obj.medicamento else "Medicamento desconocido"
+            descripcion = obj.descripcion
+            frecuencia = obj.frecuencia
+        
+        partes = [nombre]
+        if descripcion:
+            partes.append(descripcion)
+        if frecuencia:
+            partes.append(frecuencia)
+        return ", ".join(partes)
+
+    def validate(self, data):
+        fecha_inicio = data.get('fecha_inicio')
+        fecha_fin = data.get('fecha_fin')
+        if fecha_inicio and fecha_fin and fecha_fin < fecha_inicio:
+            raise serializers.ValidationError("La fecha de fin no puede ser anterior a la fecha de inicio.")
+        return data
 
 class ConsultaSerializer(serializers.ModelSerializer):
     signos_vitales = SignosVitalesSerializer(many=True, read_only=True)
-    tratamientos = TratamientoActualSerializer(many=True, read_only=True)
-    diagnosticos = DiagnosticoConsultaSerializer(many=True, read_only=True)
-    examen_funcional = ExamenFuncionalSerializer(read_only=True)  # Añadido para mostrarlo
-    examen_fisico= ExamenFisicoSerializer(read_only=True)
+    diagnostico = DiagnosticoConsultaSerializer(read_only=True)
+    examen_funcional = ExamenFuncionalSerializer(read_only=True)
+    examen_fisico = ExamenFisicoSerializer(read_only=True)
+    
+    mensaje_tratamientos = serializers.SerializerMethodField()
 
     class Meta:
         model = Consulta
         fields = [
-            'id', 'paciente', 'doctor', 'fecha', 'motivo','sintomas', 'observaciones',
-            'signos_vitales', 'tratamientos', 'diagnosticos', 'examen_funcional', 'examen_fisico'
+            'id', 'paciente', 'doctor', 'fecha', 'motivo', 'sintomas',
+            'signos_vitales','examen_funcional', 'examen_fisico', 
+            'diagnostico', 'mensaje_tratamientos', 'observaciones',
         ]
         read_only_fields = ['id', 'fecha']
+
+    def get_mensaje_tratamientos(self, obj):
+        tratamientos = obj.tratamientos.all()
+        textos = []
+        for t in tratamientos:
+            if t.medicamento:
+                nombre = t.medicamento.nombre_comercial
+                concentracion = t.medicamento.concentracion
+                via = t.medicamento.via_administracion
+                medicamento_str = f"{nombre} {concentracion} ({via})"
+            else:
+                medicamento_str = "Medicamento desconocido"
+            
+            partes = [medicamento_str]
+            if t.descripcion:
+                partes.append(t.descripcion)
+            if t.frecuencia:
+                partes.append(t.frecuencia)
+            
+            texto = ", ".join(partes)
+            textos.append(texto)
+        return ". ".join(textos) + "." if textos else ""
+
 from rest_framework import serializers
 
 class PacienteAlergiaHistoriaClinicaSerializer(serializers.ModelSerializer):
@@ -619,8 +687,14 @@ class HistoriaClinicaPacienteSerializer(serializers.ModelSerializer):
     nombre = serializers.SerializerMethodField()
     apellido = serializers.SerializerMethodField()
     tipo_sangre = serializers.SerializerMethodField()
+    cedula = serializers.SerializerMethodField()
+    edad = serializers.SerializerMethodField()
+    sexo = serializers.SerializerMethodField()
+    telefono = serializers.SerializerMethodField()
+    nacionalidad = serializers.SerializerMethodField()
 
-    consultas = ConsultaSerializer(many=True, read_only=True)
+
+    consultas = serializers.SerializerMethodField()
     signos_vitales = serializers.SerializerMethodField()
     tratamientos_actuales = serializers.SerializerMethodField()
 
@@ -635,10 +709,10 @@ class HistoriaClinicaPacienteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Paciente
         fields = [
-            'id_paciente', 'nombre', 'apellido', 'tipo_sangre',
-            'consultas', 'signos_vitales', 'tratamientos_actuales',
+            'id_paciente', 'nombre', 'apellido',  'cedula','tipo_sangre','edad', 'sexo', 'telefono', 'nacionalidad',
+             'signos_vitales', 'tratamientos_actuales',
             'alergias', 'vacunas','enfermedades_persistentes', 'medicamentos_cronicos',
-            'examenes_laboratorio', 'examenes_imagenologia'
+            'examenes_laboratorio', 'examenes_imagenologia', 'consultas'
         ]
 
     def get_nombre(self, obj):
@@ -649,6 +723,11 @@ class HistoriaClinicaPacienteSerializer(serializers.ModelSerializer):
 
     def get_tipo_sangre(self, obj):
         return obj.id_sangre.tipo_sangre if obj.id_sangre else None
+    def get_cedula(self, obj):
+        if obj.id_usuario and hasattr(obj.id_usuario, 'cedula'):
+            return obj.id_usuario.cedula
+        return "Paciente sin cédula (perfil de bebé)"
+
 
     def get_signos_vitales(self, obj):
         ultimo_signo = obj.signos_vitales.order_by('-fecha').first()
@@ -688,4 +767,62 @@ class HistoriaClinicaPacienteSerializer(serializers.ModelSerializer):
     def get_tratamientos_actuales(self, obj):
         tratamientos = TratamientoActual.objects.filter(paciente=obj)
         return TratamientoActualHCSerializer(tratamientos, many=True).data
+    
+    def get_consultas(self, obj):
+        consultas_ordenadas = obj.consultas.order_by('-fecha')
+        from .serializers import ConsultaSerializer
+        return ConsultaSerializer(consultas_ordenadas, many=True).data
+    from datetime import date
+
+    def get_edad(self, obj):
+        fecha_nacimiento = None
+        if obj.id_usuario and obj.id_usuario.fecha_nacimiento:
+            fecha_nacimiento = obj.id_usuario.fecha_nacimiento
+        elif obj.perfil_bebe and obj.perfil_bebe.fecha_nacimiento:
+            fecha_nacimiento = obj.perfil_bebe.fecha_nacimiento
+
+        if not fecha_nacimiento:
+            return None
+
+        hoy = date.today()
+        años = hoy.year - fecha_nacimiento.year
+        meses = hoy.month - fecha_nacimiento.month
+        dias = hoy.day - fecha_nacimiento.day
+
+        if dias < 0:
+            meses -= 1
+        if meses < 0:
+            años -= 1
+            meses += 12
+
+        if obj.perfil_bebe:
+        # Si es un bebé y tiene menos de 1 año, mostrar en meses
+            total_meses = años * 12 + meses
+            if total_meses < 12:
+                return f"{total_meses} meses"
+    
+        return f"{años} años"
+    
+    def get_sexo(self, obj):
+        if obj.id_usuario and obj.id_usuario.sexo:
+            return dict(Usuario.SEXO_CHOICES).get(obj.id_usuario.sexo, "No especificado")
+        elif obj.perfil_bebe and obj.perfil_bebe.sexo:
+            return dict(PerfilBebe._meta.get_field('sexo').choices).get(obj.perfil_bebe.sexo, "No especificado")
+        return "No especificado"
+    
+    def get_telefono(self, obj):
+        if obj.id_usuario and obj.id_usuario.telefono:
+            return obj.id_usuario.telefono
+        return "Perfil BB"
+
+    def get_nacionalidad(self, obj):
+        if obj.id_usuario:
+            nacionalidad = obj.id_usuario.nacionalidad
+            if nacionalidad == 'V':
+                return "Venezolano"
+            elif nacionalidad == 'E':
+                return "Extranjero"
+        return "Perfil BB"
+
+
 
