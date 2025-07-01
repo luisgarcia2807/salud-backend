@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import ActivarDoctorView, AlergiasPorPacienteView, BebesPorResponsableView, ConsultaDetailView, ConsultaListCreateView, DatosBasicosPorPacienteView, DescargarHistoriaClinicaWord, DiagnosticoConsultaView, DoctorPacienteViewSet, DoctorPorUsuarioView, DoctoresActivosInactivosView, EnfermedadPersistenteListView, EnfermedadesPorPacienteView, ExamenFisicoDetailView, ExamenFisicoListCreateView, ExamenFuncionalDetailView, ExamenFuncionalListCreateView, ExamenLaboratorioView, ExamenlabImagenologiaView, GrupoSanguineoListView, HistoriaClinicaIAOpenRouter, HistoriaClinicaPacienteView, ListaAlergias, MedicamentoCronicoListView, PacienteAlergiaViewSet, PacienteEnfermedadPersistenteViewSet, PacienteMedicamentoCronicoViewSet, PacientePorPerfilBebeView, PacientePorUsuarioView, PerfilBebeDetailView, PerfilBebeViewSet, SignosVitalesViewSet, SolicitudesPorDoctorAPIView, SolicitudesPorPacienteAPIView, SubirArchivoSupabase, SubirDocumentoView, SubirImagenPruebaView, TratamientosCronicosPorPacienteView, UsuarioDetailView, UsuarioViewSet, CustomTokenObtainPairView, CustomTokenRefreshView, VacunaListView, VacunaPacienteViewSet, VacunasPorPacienteView, actualizar_foto_perfil, actualizar_tratamiento, buscar_paciente_por_cedula, listar_medicamentos, procesar_documento, proxima_dosis, ultimas_dosis_por_paciente,  obtener_paciente_por_token
+from .views import ActivarDoctorView, AlergiasPorPacienteView, BebesPorResponsableView, ConsultaDetailView, ConsultaListCreateView, DatosBasicosPorPacienteView, DescargarHistoriaClinicaWord, DiagnosticoConsultaView, DoctorPacienteViewSet, DoctorPorUsuarioView, DoctoresActivosInactivosView, EnfermedadComunListView, EnfermedadPersistenteListView, EnfermedadesComunesPorPacienteView, EnfermedadesPorPacienteView, ExamenFisicoDetailView, ExamenFisicoListCreateView, ExamenFuncionalDetailView, ExamenFuncionalListCreateView, ExamenLaboratorioView, ExamenlabImagenologiaView, GrupoSanguineoListView, HistoriaClinicaIAOpenRouter, HistoriaClinicaPacienteView, ListaAlergias, MedicamentoCronicoListView, PacienteAlergiaViewSet, PacienteEnfermedadComunViewSet, PacienteEnfermedadPersistenteViewSet, PacienteMedicamentoCronicoViewSet, PacientePorPerfilBebeView, PacientePorUsuarioView, PerfilBebeDetailView, PerfilBebeViewSet, SignosVitalesViewSet, SolicitudesPorDoctorAPIView, SolicitudesPorPacienteAPIView, SubirArchivoSupabase, SubirDocumentoView, SubirImagenPruebaView, TratamientosCronicosPorPacienteView, UsuarioDetailView, UsuarioViewSet, CustomTokenObtainPairView, CustomTokenRefreshView, VacunaListView, VacunaPacienteViewSet, VacunasPorPacienteView, actualizar_foto_perfil, actualizar_tratamiento, buscar_paciente_por_cedula, listar_medicamentos, procesar_documento, proxima_dosis, ultimas_dosis_por_paciente,  obtener_paciente_por_token
 from .views import CentroMedicoListView, EspecialidadListView, DatosBasicosPorTokenView
 from . import views
 
@@ -14,6 +14,8 @@ router.register(r'paciente_medicamento_cronico', PacienteMedicamentoCronicoViewS
 router.register(r'doctor-paciente', DoctorPacienteViewSet, basename='doctor-paciente')
 router.register(r'signos_vitales', SignosVitalesViewSet, basename='signos_vitales')
 router.register(r'bebes', PerfilBebeViewSet, basename='perfilbebe')
+router.register(r'paciente-enfermedad-comun', PacienteEnfermedadComunViewSet, basename='paciente-enfermedad-comun')
+
 
 urlpatterns = [
     path('api/', include(router.urls)),
@@ -74,6 +76,8 @@ urlpatterns = [
     path('api/examenfuncional/<int:pk>/', ExamenFuncionalDetailView.as_view(), name='examenfuncional-detail'),
     path('api/examen-fisico/', ExamenFisicoListCreateView.as_view(), name='examen_fisico_list_create'),
     path('api/examen-fisico/<int:pk>/', ExamenFisicoDetailView.as_view(), name='examen_fisico_detail'),
+    path('api/enfermedad-comun/', EnfermedadComunListView.as_view(), name='enfermedad-comun-list'),
+    path('api/paciente/<int:id_paciente>/enfermedades-comunes/', EnfermedadesComunesPorPacienteView.as_view(), name='enfermedades-comunes-por-paciente'),
 
 ]
 

@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.db import transaction
 from django.contrib.auth import authenticate
-from .models import Consulta, Alergia, EnfermedadPersistente, ExamenFisico, ExamenFuncional, ExamenLabImagenologia, ExamenLaboratorio, GrupoSanguineo, MedicamentoCronico, PacienteAlergia, PacienteEnfermedadPersistente, PacienteMedicamentoCronico, PerfilBebe, Usuario, Paciente, Doctor, Especialidad, EspecialidadDoctor, CentroMedico, DoctorCentro, Vacuna
+from .models import Consulta, Alergia, EnfermedadComun, EnfermedadPersistente, ExamenFisico, ExamenFuncional, ExamenLabImagenologia, ExamenLaboratorio, GrupoSanguineo, MedicamentoCronico, PacienteAlergia, PacienteEnfermedadComun, PacienteEnfermedadPersistente, PacienteMedicamentoCronico, PerfilBebe, Usuario, Paciente, Doctor, Especialidad, EspecialidadDoctor, CentroMedico, DoctorCentro, Vacuna
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 class UsuarioSerializer(serializers.ModelSerializer):
@@ -231,6 +231,31 @@ class PacienteEnfermedadPersistenteSerializer(serializers.ModelSerializer):
     class Meta:
         model= PacienteEnfermedadPersistente
         fields = '__all__'
+
+class EnfermedadComunSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EnfermedadComun
+        fields = '__all__'
+
+class PacienteEnfermedadComunSerializer(serializers.ModelSerializer):
+    enfermedad = EnfermedadComunSerializer(read_only=True)  # Anidado, muestra detalles
+    enfermedad_id = serializers.PrimaryKeyRelatedField(
+        queryset=EnfermedadComun.objects.all(), source='enfermedad', write_only=True
+    )
+
+    class Meta:
+        model = PacienteEnfermedadComun
+        fields = [
+            'id', 'paciente', 'enfermedad', 'enfermedad_id', 'fecha_diagnostico',
+            'fecha_recuperacion', 'observacion', 'aprobado', 'doctor_aprobador'
+        ]
+
+    def validate(self, data):
+        fecha_diag = data.get('fecha_diagnostico')
+        fecha_rec = data.get('fecha_recuperacion')
+        if fecha_rec and fecha_diag and fecha_rec < fecha_diag:
+            raise serializers.ValidationError("La fecha de recuperación no puede ser anterior a la fecha de diagnóstico.")
+        return data
 
 class UsuarioNombreApellidoCedulaSerializer(serializers.ModelSerializer):
     class Meta:

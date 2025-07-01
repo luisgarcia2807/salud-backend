@@ -1,6 +1,6 @@
 from rest_framework import viewsets, serializers, status
-from .models import Alergia, Doctor, DoctorCentro, EnfermedadPersistente, ExamenLabImagenologia, ExamenLaboratorio, GrupoSanguineo, MedicamentoCronico, Paciente, PacienteAlergia, PacienteEnfermedadPersistente, PacienteMedicamentoCronico, PerfilBebe, RegistroVacuna, Usuario, Vacuna
-from .serializers import AlergiaSerializer, DoctorPacienteDetalleSerializer, DoctorSerializer, DocumentoEscaneadoSerializer, EnfermedadPersistenteSerializer, ExamenImagenologiaSerializer, ExamenLaboratorioSerializer, GrupoSanguineoSerializer, HistoriaClinicaPacienteSerializer, MedicamentoCronicoSerializer, PacienteAlergiaSerializer, PacienteEnfermedadPersistenteSerializer, PacienteMedicamentoCronicoSerializer, PacienteSerializer, PerfilBebeRegistroSerializer, RegistroVacunaSerializer, UsuarioSerializer, VacunaSerializer
+from .models import Alergia, Doctor, DoctorCentro, EnfermedadComun, EnfermedadPersistente, ExamenLabImagenologia, ExamenLaboratorio, GrupoSanguineo, MedicamentoCronico, Paciente, PacienteAlergia, PacienteEnfermedadPersistente, PacienteMedicamentoCronico, PerfilBebe, RegistroVacuna, Usuario, Vacuna
+from .serializers import AlergiaSerializer, DoctorPacienteDetalleSerializer, DoctorSerializer, DocumentoEscaneadoSerializer, EnfermedadComunSerializer, EnfermedadPersistenteSerializer, ExamenImagenologiaSerializer, ExamenLaboratorioSerializer, GrupoSanguineoSerializer, HistoriaClinicaPacienteSerializer, MedicamentoCronicoSerializer, PacienteAlergiaSerializer, PacienteEnfermedadComunSerializer, PacienteEnfermedadPersistenteSerializer, PacienteMedicamentoCronicoSerializer, PacienteSerializer, PerfilBebeRegistroSerializer, RegistroVacunaSerializer, UsuarioSerializer, VacunaSerializer
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django.contrib.auth import authenticate
@@ -272,6 +272,7 @@ class AlergiasPorPacienteView(APIView):
             })
 
         return Response(resultados, status=status.HTTP_200_OK)
+
 class VacunaListView(APIView):
     def get(self, request):
         vacunas = Vacuna.objects.all()  # Obtener todas las vacunas
@@ -329,8 +330,6 @@ class PacienteEnfermedadPersistenteViewSet(viewsets.ModelViewSet):
     serializer_class = PacienteEnfermedadPersistenteSerializer  # Usa el serializador de PacienteEnfermedadPersistente
 
 
-
-
 class EnfermedadesPorPacienteView(APIView):
     def get(self, request, id_paciente):
         tipo_param = request.query_params.get('tipo')  # Captura el tipo desde la URL
@@ -349,6 +348,64 @@ class EnfermedadesPorPacienteView(APIView):
                 'nombre_enfermedad': e.enfermedad.nombre,
                 'Tipo_enfermedad': e.enfermedad.get_tipo_display(),
                 'fecha_diagnostico': e.fecha_diagnostico,
+                'observacion': e.observacion,
+                'aprobado': e.aprobado,
+                'doctor_aprobador': (
+                    f"{e.doctor_aprobador.id_usuario.nombre} {e.doctor_aprobador.id_usuario.apellido}"
+                    if e.doctor_aprobador else None
+                )
+            })
+
+        return Response(resultados, status=status.HTTP_200_OK)
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.db.models import Q
+from .models import PacienteEnfermedadComun
+
+class EnfermedadComunListView(APIView):
+    def get(self, request):
+        tipo = request.query_params.get('tipo', None)
+        enfermedades = EnfermedadComun.objects.all()
+        if tipo:
+            enfermedades = enfermedades.filter(tipo=tipo)
+        serializer = EnfermedadComunSerializer(enfermedades, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class PacienteEnfermedadComunViewSet(viewsets.ModelViewSet):
+    queryset = PacienteEnfermedadComun.objects.all()
+    serializer_class = PacienteEnfermedadComunSerializer
+
+class EnfermedadesComunesPorPacienteView(APIView):
+    def get(self, request, id_paciente):
+        activas = request.query_params.get('activas')
+        tipo = request.query_params.get('tipo')
+        nombre = request.query_params.get('nombre')
+
+        enfermedades = PacienteEnfermedadComun.objects.filter(paciente_id=id_paciente).select_related('enfermedad', 'doctor_aprobador__id_usuario')
+
+        if activas:
+            if activas.lower() == 'true':
+                enfermedades = enfermedades.filter(fecha_recuperacion__isnull=True)
+            elif activas.lower() == 'false':
+                enfermedades = enfermedades.filter(fecha_recuperacion__isnull=False)
+
+        if tipo:
+            enfermedades = enfermedades.filter(enfermedad__tipo=tipo)
+
+        if nombre:
+            enfermedades = enfermedades.filter(enfermedad__nombre__icontains=nombre)
+
+        resultados = []
+        for e in enfermedades:
+            resultados.append({
+                'id': e.id,
+                'nombre_enfermedad': e.enfermedad.nombre,
+                'tipo_enfermedad': e.enfermedad.get_tipo_display(),
+                'descripcion': e.enfermedad.descripcion,
+                'fecha_diagnostico': e.fecha_diagnostico,
+                'fecha_recuperacion': e.fecha_recuperacion,
                 'observacion': e.observacion,
                 'aprobado': e.aprobado,
                 'doctor_aprobador': (
@@ -1201,17 +1258,6 @@ class ExamenFisicoDetailView(APIView):
         examen.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    
-from django.http import FileResponse, Http404
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from django.conf import settings
-
-from docx import Document
-import os
-import tempfile
-from datetime import datetime
 
 # Suponiendo que tienes el modelo Paciente y relaciones necesarias
 from .models import Paciente

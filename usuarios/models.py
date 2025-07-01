@@ -583,3 +583,39 @@ class ExamenFisico(models.Model):
 
     def __str__(self):
         return f"Examen Físico de Consulta {self.consulta.id}"
+
+class EnfermedadComun(models.Model):
+    TIPO_ENFERMEDAD = [
+        ('respiratoria', 'Respiratoria'),
+        ('viral', 'Viral'),
+        ('bacterial', 'Bacteriana'),
+        ('digestiva', 'Digestiva'),
+        ('dermatologica', 'Dermatológica'),
+        ('otros', 'Otros'),
+    ]
+
+    nombre = models.CharField(max_length=100, unique=True)
+    descripcion = models.TextField(blank=True, null=True)
+    tipo = models.CharField(max_length=20, choices=TIPO_ENFERMEDAD, default='otros')
+
+    def __str__(self):
+        return f"{self.nombre} ({self.get_tipo_display()})"
+
+
+class PacienteEnfermedadComun(models.Model):
+    paciente = models.ForeignKey(Paciente, on_delete=models.CASCADE, related_name='enfermedades_comunes')
+    enfermedad = models.ForeignKey(EnfermedadComun, on_delete=models.CASCADE)
+    fecha_diagnostico = models.DateField(auto_now_add=True)
+    fecha_recuperacion = models.DateField(null=True, blank=True)
+    observacion = models.TextField(blank=True, null=True)
+    aprobado = models.BooleanField(default=False)
+    doctor_aprobador = models.ForeignKey(Doctor, null=True, blank=True, on_delete=models.SET_NULL)
+
+    class Meta:
+        ordering = ['-fecha_diagnostico']
+
+    def esta_activa(self):
+        return self.fecha_recuperacion is None
+
+    def __str__(self):
+        return f"{self.paciente} - {self.enfermedad} ({self.fecha_diagnostico})"
