@@ -429,6 +429,23 @@ class DoctoresActivosInactivosView(APIView):
         
         return Response(serializer.data, status=status.HTTP_200_OK)
     
+
+class VerificarDoctorCentroActivoView(APIView):
+    def get(self, request, id_doctor):
+        id_centromedico = 1  # Centro médico fijo
+
+        esta_aceptado = DoctorCentro.objects.filter(
+            id_doctor=id_doctor,
+            id_centromedico=id_centromedico,
+            aceptado_por_centromedico=True
+        ).exists()
+
+        return Response({
+            "id_doctor": id_doctor,
+            "id_centromedico": id_centromedico,
+            "aceptado": esta_aceptado
+        }, status=status.HTTP_200_OK)
+
 class ActivarDoctorView(APIView):
     def post(self, request, id_centromedico, id_doctor):
         # Buscar si ya existe una solicitud de DoctorCentro

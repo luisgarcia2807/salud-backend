@@ -149,9 +149,12 @@ class CentroMedico(models.Model):
     idcentromedico = models.AutoField(primary_key=True)
     nombre = models.CharField(max_length=255)
     direccion = models.TextField()
-    id_usuario = models.ForeignKey('Usuario', on_delete=models.CASCADE)  # Relación con el modelo User
+    id_usuario = models.ForeignKey('Usuario', on_delete=models.CASCADE)
+
     def __str__(self):
-        return self.idcentromedico
+        return self.nombre  # Mejor mostrar el nombre que el ID
+
+
     
 class Doctor(models.Model):
     id_doctor = models.AutoField(primary_key=True)
@@ -175,14 +178,8 @@ class DoctorCentro(models.Model):
 
     def __str__(self):
         estado = "Aceptado" if self.aceptado_por_centromedico else "Pendiente"
-        return f"{self.id_doctor.id_usuario.nombre} {self.id_doctor.id_usuario.apellido} - {self.id_centromedico.nombre} - {estado}"
-    id_doctorcentro = models.AutoField(primary_key=True)
-    id_doctor = models.ForeignKey('Doctor', on_delete=models.CASCADE)
-    id_centromedico = models.ForeignKey('CentroMedico', on_delete=models.CASCADE)
-    aceptado_por_centromedico = models.BooleanField(default=False)
-
-    def __str__(self):
-        return f"Doctor {self.id_doctor} - Centro Médico {self.id_centromedico} - Aceptado: {self.aceptado_por_centromedico}"
+        # Aquí convierto los objetos relacionados a strings usando sus __str__
+        return f"{self.id_doctor} - {self.id_centromedico} - {estado}"
 
 
 class EspecialidadDoctor(models.Model):
