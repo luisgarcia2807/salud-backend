@@ -1259,7 +1259,324 @@ class ExamenFisicoDetailView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-# Suponiendo que tienes el modelo Paciente y relaciones necesarias
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.shortcuts import get_object_or_404
+from django.utils.timezone import now, make_aware
+from django.db.models import Count, Min, Max, Avg, Q, F, DurationField
+from django.db.models.functions import TruncMonth, ExtractWeekDay
+from django.core.exceptions import ValidationError
+from datetime import datetime, timedelta
+from django.utils import timezone
+import logging
+
+logger = logging.getLogger(__name__)
+
+class EstadisticasDoctorView(APIView):
+    def get(self, request, id_doctor):
+        try:
+            # Validaciones iniciales
+            if not id_doctor:
+                return Response(
+                    {"error": "ID del doctor es requerido"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            try:
+                id_doctor = int(id_doctor)
+                if id_doctor <= 0:
+                    raise ValueError
+            except (ValueError, TypeError):
+                return Response(
+                    {"error": "ID del doctor debe ser un número entero positivo"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            doctor = get_object_or_404(Doctor, id_doctor=id_doctor)
+
+            # Validar que el doctor esté activo (si tienes este campo)
+            if hasattr(doctor, 'activo') and not doctor.activo:
+                return Response(
+                    {"error": "Doctor no está activo"}, 
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            hoy = now().date()
+            # Usar timezone aware para las fechas
+            inicio_mes = timezone.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            inicio_ano = timezone.now().replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+            hace_6_meses = timezone.now() - timedelta(days=180)
+
+            # PACIENTES con validaciones mejoradas
+            pacientes_qs = doctor.solicitudes_enviadas.filter(estado='aceptado')\
+                .select_related('paciente__id_usuario')\
+                .prefetch_related('paciente__perfil_bebe')
+
+            total_pacientes = pacientes_qs.count()
+            
+            if total_pacientes == 0:
+                logger.info(f"Doctor {id_doctor} no tiene pacientes")
+            
+            pacientes_nuevos_mes = pacientes_qs.filter(creado_en__gte=inicio_mes).count()
+            pacientes_nuevos_ano = pacientes_qs.filter(creado_en__gte=inicio_ano).count()
+            pacientes_activos_6_meses = pacientes_qs.filter(creado_en__gte=hace_6_meses).count()
+
+            # Procesamiento de edades y demografía con validaciones
+            edades = []
+            distribucion_edad_sexo = {
+                "niños_hombres": 0, "niñas_mujeres": 0,
+                "jóvenes_hombres": 0, "jóvenes_mujeres": 0,
+                "adultos_hombres": 0, "adultas_mujeres": 0,
+                "adultos_mayores_hombres": 0, "adultas_mayores_mujeres": 0,
+            }
+            sexo_contador = {"masculino": 0, "femenino": 0, "otro": 0}
+            pacientes_sin_fecha = 0
+            pacientes_con_edad_invalida = 0
+
+            for p in pacientes_qs:
+                perfil = None
+                sexo = None
+                
+                # Validar y obtener perfil
+                if p.paciente and p.paciente.id_usuario and p.paciente.id_usuario.fecha_nacimiento:
+                    perfil = p.paciente.id_usuario
+                    sexo = (perfil.sexo or "").strip().lower()
+                elif p.paciente and p.paciente.perfil_bebe and p.paciente.perfil_bebe.fecha_nacimiento:
+                    perfil = p.paciente.perfil_bebe
+                    sexo = (perfil.sexo or "").strip().lower()
+                else:
+                    pacientes_sin_fecha += 1
+                    continue
+
+                if perfil and perfil.fecha_nacimiento:
+                    # Validar fecha de nacimiento
+                    if perfil.fecha_nacimiento > hoy:
+                        pacientes_con_edad_invalida += 1
+                        logger.warning(f"Paciente con fecha de nacimiento futura: {perfil.fecha_nacimiento}")
+                        continue
+                    
+                    edad = hoy.year - perfil.fecha_nacimiento.year - (
+                        (hoy.month, hoy.day) < (perfil.fecha_nacimiento.month, perfil.fecha_nacimiento.day)
+                    )
+                    
+                    # Validar edad razonable
+                    if edad < 0 or edad > 150:
+                        pacientes_con_edad_invalida += 1
+                        logger.warning(f"Paciente con edad inválida: {edad}")
+                        continue
+                    
+                    edades.append(edad)
+
+                    # Normalizar sexo
+                    if sexo in ['masculino', 'hombre', 'm', 'male']:
+                        sexo = 'masculino'
+                    elif sexo in ['femenino', 'mujer', 'f', 'female']:
+                        sexo = 'femenino'
+                    else:
+                        sexo = 'otro'
+
+                    # Clasificación edad+sexo
+                    if edad < 13:
+                        key = "niños_hombres" if sexo == "masculino" else "niñas_mujeres"
+                    elif 13 <= edad <= 25:
+                        key = "jóvenes_hombres" if sexo == "masculino" else "jóvenes_mujeres"
+                    elif 26 <= edad <= 60:
+                        key = "adultos_hombres" if sexo == "masculino" else "adultas_mujeres"
+                    else:
+                        key = "adultos_mayores_hombres" if sexo == "masculino" else "adultas_mayores_mujeres"
+                    distribucion_edad_sexo[key] += 1
+
+                    # Contador sexo general
+                    sexo_contador[sexo] += 1
+
+            # Estadísticas de edad mejoradas
+            distribucion_edad = {
+                "niños": sum(1 for e in edades if e < 13),
+                "jóvenes": sum(1 for e in edades if 13 <= e <= 25),
+                "adultos": sum(1 for e in edades if 26 <= e <= 60),
+                "adultos_mayores": sum(1 for e in edades if e > 60),
+            }
+            
+            edad_promedio = round(sum(edades) / len(edades), 1) if edades else 0
+            edad_min = min(edades) if edades else 0
+            edad_max = max(edades) if edades else 0
+
+            distribucion_sexo = [{"sexo": k, "total": v} for k, v in sexo_contador.items()]
+
+            # Pacientes por mes con validación
+            pacientes_por_mes = (
+                pacientes_qs.annotate(mes=TruncMonth('creado_en'))
+                .values('mes')
+                .annotate(total=Count('id'))
+                .order_by('mes')
+            )
+
+            # TOP: Meses con más pacientes nuevos
+            top_meses_pacientes = list(pacientes_por_mes.order_by('-total')[:3])
+
+            # CONSULTAS con validaciones mejoradas
+            consultas = doctor.consultas.all()
+            total_consultas = consultas.count()
+            
+            if total_consultas == 0:
+                logger.info(f"Doctor {id_doctor} no tiene consultas registradas")
+            
+            consultas_mes_actual = consultas.filter(fecha__gte=inicio_mes).count()
+            consultas_ano_actual = consultas.filter(fecha__gte=inicio_ano).count()
+            
+            consultas_por_mes = (
+                consultas.annotate(mes=TruncMonth('fecha'))
+                .values('mes')
+                .annotate(total=Count('id'))
+                .order_by('mes')
+            )
+            
+            consultas_por_dia = (
+                consultas.annotate(dia=ExtractWeekDay('fecha'))
+                .values('dia')
+                .annotate(total=Count('id'))
+            )
+
+            # TOP: Días de la semana con más consultas
+            top_dias_consultas = list(consultas_por_dia.order_by('-total')[:3])
+            
+            # Mapear números de día a nombres
+            dias_nombres = {1: 'Domingo', 2: 'Lunes', 3: 'Martes', 4: 'Miércoles', 
+                          5: 'Jueves', 6: 'Viernes', 7: 'Sábado'}
+            for dia in top_dias_consultas:
+                dia['nombre_dia'] = dias_nombres.get(dia['dia'], 'Desconocido')
+
+            # Promedio de consultas con validación
+            dias_registrados = consultas.aggregate(min_fecha=Min('fecha'), max_fecha=Max('fecha'))
+            if dias_registrados['min_fecha'] and dias_registrados['max_fecha']:
+                total_dias = (dias_registrados['max_fecha'].date() - dias_registrados['min_fecha'].date()).days + 1
+                promedio_dia = round(total_consultas / total_dias, 2) if total_dias > 0 else 0
+                promedio_semana = round(promedio_dia * 7, 2)
+                promedio_mes = round(promedio_dia * 30, 2)
+            else:
+                promedio_dia = promedio_semana = promedio_mes = 0
+
+            # DIAGNÓSTICOS con validaciones
+            try:
+                enfermedades_comunes = doctor.pacienteenfermedadcomun_set.values('enfermedad__tipo').annotate(total=Count('id')).order_by('-total')
+                enfermedades_persistentes = doctor.pacienteenfermedadpersistente_set.values('enfermedad__tipo').annotate(total=Count('id')).order_by('-total')
+                
+                # TOP: Enfermedades más diagnosticadas
+                top_enfermedades_comunes = list(enfermedades_comunes[:5])
+                top_enfermedades_persistentes = list(enfermedades_persistentes[:5])
+                
+            except Exception as e:
+                logger.error(f"Error obteniendo diagnósticos: {e}")
+                enfermedades_comunes = []
+                enfermedades_persistentes = []
+                top_enfermedades_comunes = []
+                top_enfermedades_persistentes = []
+
+            # TRATAMIENTOS con validaciones mejoradas
+            try:
+                tratamientos = doctor.tratamientoactual_set.all()
+                total_tratamientos = tratamientos.count()
+                
+                tratamientos_estado = tratamientos.values('finalizado').annotate(total=Count('id'))
+                medicamentos_mas_recetados = tratamientos.values('medicamento__nombre_comercial').annotate(total=Count('id')).order_by('-total')[:10]
+                
+                # Calcular duración promedio de tratamientos finalizados de manera segura
+                duracion_promedio_dias = None
+                if hasattr(tratamientos.model, 'fecha_inicio') and hasattr(tratamientos.model, 'fecha_fin'):
+                    # Usar diferencia en días para evitar problemas con AVG en fechas
+                    tratamientos_con_duracion = tratamientos.filter(
+                        finalizado=True,
+                        fecha_inicio__isnull=False,
+                        fecha_fin__isnull=False
+                    ).annotate(
+                        duracion_dias=F('fecha_fin') - F('fecha_inicio')
+                    ).aggregate(
+                        promedio_duracion=Avg('duracion_dias')
+                    )
+                    
+                    if tratamientos_con_duracion['promedio_duracion']:
+                        duracion_promedio_dias = tratamientos_con_duracion['promedio_duracion'].days
+                
+                # Efectividad de tratamientos (si tienes campo de resultado)
+                tratamientos_exitosos = 0
+                if hasattr(tratamientos.model, 'resultado_exitoso'):
+                    tratamientos_exitosos = tratamientos.filter(resultado_exitoso=True).count()
+                
+                efectividad = round((tratamientos_exitosos / total_tratamientos) * 100, 2) if total_tratamientos > 0 else 0
+                
+            except Exception as e:
+                logger.error(f"Error obteniendo tratamientos: {e}")
+                tratamientos_estado = []
+                medicamentos_mas_recetados = []
+                duracion_promedio_dias = None
+                efectividad = 0
+                total_tratamientos = 0
+
+            # Respuesta estructurada con validaciones
+            response_data = {
+                "doctor_id": id_doctor,
+                "fecha_consulta": hoy.isoformat(),
+                "validaciones": {
+                    "pacientes_sin_fecha_nacimiento": pacientes_sin_fecha,
+                    "pacientes_edad_invalida": pacientes_con_edad_invalida,
+                    "total_pacientes_validos": len(edades),
+                },
+                "pacientes": {
+                    "total": total_pacientes,
+                    "nuevos_mes": pacientes_nuevos_mes,
+                    "nuevos_ano": pacientes_nuevos_ano,
+                    "activos_6_meses": pacientes_activos_6_meses,
+                    "distribucion_edad": distribucion_edad,
+                    "distribucion_edad_sexo": distribucion_edad_sexo,
+                    "distribucion_sexo": distribucion_sexo,
+                    "nuevos_por_mes": list(pacientes_por_mes),
+                    "estadisticas_edad": {
+                        "promedio": edad_promedio,
+                        "minima": edad_min,
+                        "maxima": edad_max,
+                    },
+                    "top_meses_nuevos": top_meses_pacientes,
+                },
+                "consultas": {
+                    "total": total_consultas,
+                    "mes_actual": consultas_mes_actual,
+                    "ano_actual": consultas_ano_actual,
+                    "por_mes": list(consultas_por_mes),
+                    "por_dia_semana": list(consultas_por_dia),
+                    "promedio_dia": promedio_dia,
+                    "promedio_semana": promedio_semana,
+                    "promedio_mes": promedio_mes,
+                    "top_dias_semana": top_dias_consultas,
+                },
+                "diagnosticos": {
+                    "comunes": list(enfermedades_comunes),
+                    "persistentes": list(enfermedades_persistentes),
+                    "top_comunes": top_enfermedades_comunes,
+                    "top_persistentes": top_enfermedades_persistentes,
+                },
+                "tratamientos": {
+                    "total": total_tratamientos,
+                    "estado": list(tratamientos_estado),
+                    "top_medicamentos": list(medicamentos_mas_recetados),
+                    "efectividad_porcentaje": efectividad,
+                    "duracion_promedio_dias": duracion_promedio_dias,
+                }
+            }
+
+            return Response(response_data, status=status.HTTP_200_OK)
+
+        except Doctor.DoesNotExist:
+            return Response(
+                {"error": "Doctor no encontrado"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error inesperado en estadísticas del doctor {id_doctor}: {str(e)}")
+            return Response(
+                {"error": "Error interno del servidor"}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )# Suponiendo que tienes el modelo Paciente y relaciones necesarias
 from .models import Paciente
 from .serializers import HistoriaClinicaPacienteSerializer  # tu serializer completo
 
