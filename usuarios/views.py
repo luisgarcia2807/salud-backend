@@ -1,5 +1,5 @@
 from rest_framework import viewsets, serializers, status
-from .models import Alergia, Doctor, DoctorCentro, EnfermedadComun, EnfermedadPersistente, ExamenLabImagenologia, ExamenLaboratorio, GrupoSanguineo, MedicamentoCronico, Paciente, PacienteAlergia, PacienteEnfermedadPersistente, PacienteMedicamentoCronico, PerfilBebe, RegistroVacuna, Usuario, Vacuna
+from .models import Alergia, Doctor, DoctorCentro, EnfermedadComun, EnfermedadPersistente, EspecialidadDoctor, ExamenLabImagenologia, ExamenLaboratorio, GrupoSanguineo, MedicamentoCronico, Paciente, PacienteAlergia, PacienteEnfermedadPersistente, PacienteMedicamentoCronico, PerfilBebe, RegistroVacuna, Usuario, Vacuna
 from .serializers import AlergiaSerializer, DoctorPacienteDetalleSerializer, DoctorSerializer, DocumentoEscaneadoSerializer, EnfermedadComunSerializer, EnfermedadPersistenteSerializer, ExamenImagenologiaSerializer, ExamenLaboratorioSerializer, GrupoSanguineoSerializer, HistoriaClinicaPacienteSerializer, MedicamentoCronicoSerializer, PacienteAlergiaSerializer, PacienteEnfermedadComunSerializer, PacienteEnfermedadPersistenteSerializer, PacienteMedicamentoCronicoSerializer, PacienteSerializer, PerfilBebeRegistroSerializer, RegistroVacunaSerializer, UsuarioSerializer, VacunaSerializer
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
@@ -1595,6 +1595,240 @@ class EstadisticasDoctorView(APIView):
                 {"error": "Error interno del servidor"}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )# Suponiendo que tienes el modelo Paciente y relaciones necesarias
+
+
+
+from datetime import timedelta
+from django.db.models import Count, Q, F, Avg
+from django.db.models.functions import TruncMonth, ExtractWeekDay
+from django.utils.timezone import now
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+from .models import (
+    Paciente, Consulta, PacienteEnfermedadComun, PacienteEnfermedadPersistente,
+    TratamientoActual, RegistroVacuna, PacienteAlergia
+)
+
+@api_view(['GET'])
+def estadisticas_centro_medico(request):
+    hoy = now().date()
+    hace_6_meses = hoy - timedelta(days=180)
+    ultimo_anio = hoy - timedelta(days=365)
+
+    pacientes = Paciente.objects.all()
+    consultas = Consulta.objects.all()
+
+    # Total pacientes
+    total_pacientes = pacientes.count()
+
+    # Grupos de edad
+    bebes = pacientes.filter(perfil_bebe__isnull=False).count()
+    niños = pacientes.filter(
+        id_usuario__isnull=False,
+        id_usuario__fecha_nacimiento__gte=hoy.replace(year=hoy.year - 12)
+    ).count()
+    jovenes = pacientes.filter(
+        id_usuario__isnull=False,
+        id_usuario__fecha_nacimiento__lt=hoy.replace(year=hoy.year - 12),
+        id_usuario__fecha_nacimiento__gte=hoy.replace(year=hoy.year - 25)
+    ).count()
+    adultos = pacientes.filter(
+        id_usuario__isnull=False,
+        id_usuario__fecha_nacimiento__lt=hoy.replace(year=hoy.year - 25),
+        id_usuario__fecha_nacimiento__gte=hoy.replace(year=hoy.year - 60)
+    ).count()
+    mayores = pacientes.filter(
+        id_usuario__isnull=False,
+        id_usuario__fecha_nacimiento__lt=hoy.replace(year=hoy.year - 60)
+    ).count()
+
+    # Sexo
+    masculino = pacientes.filter(
+        Q(id_usuario__sexo='M') | Q(perfil_bebe__sexo='M')
+    ).count()
+    femenino = pacientes.filter(
+        Q(id_usuario__sexo='F') | Q(perfil_bebe__sexo='F')
+    ).count()
+    otro = pacientes.filter(
+        Q(id_usuario__sexo='O') | Q(perfil_bebe__sexo='O')
+    ).count()
+
+    # Nacionalidad (solo usuarios con perfil normal)
+    venezolano = pacientes.filter(id_usuario__nacionalidad='V').count()
+    extranjero = pacientes.filter(id_usuario__nacionalidad='E').count()
+
+    # Nuevos pacientes por mes (solo usuarios)
+    nuevos_por_mes = pacientes.filter(id_usuario__isnull=False, id_usuario__date_joined__gte=ultimo_anio).annotate(
+        mes=TruncMonth('id_usuario__date_joined')
+    ).values('mes').annotate(total=Count('id_paciente')).order_by('mes')
+
+    # Consultas por mes
+    consultas_por_mes = consultas.filter(fecha__gte=ultimo_anio).annotate(
+        mes=TruncMonth('fecha')
+    ).values('mes').annotate(total=Count('id')).order_by('mes')
+
+    # Consultas por día de la semana (1 = Domingo, 7 = Sábado) - MEJORADO
+    dias_semana = {
+        1: 'Domingo',
+        2: 'Lunes', 
+        3: 'Martes',
+        4: 'Miércoles',
+        5: 'Jueves',
+        6: 'Viernes',
+        7: 'Sábado'
+    }
+    
+    consultas_por_dia_raw = consultas.annotate(
+        dia=ExtractWeekDay('fecha')
+    ).values('dia').annotate(total=Count('id')).order_by('-total')[:3]  # Top 3
+    
+    consultas_por_dia = []
+    for item in consultas_por_dia_raw:
+        consultas_por_dia.append({
+            'dia_numero': item['dia'],
+            'dia_nombre': dias_semana[item['dia']],
+            'total': item['total']
+        })
+
+    # Enfermedades comunes (top 5) - CORREGIDO
+    top_enfermedades_comunes = PacienteEnfermedadComun.objects.filter(
+        fecha_recuperacion__isnull=True
+    ).values(
+        enfermedad_nombre=F('enfermedad__nombre')
+    ).annotate(total=Count('id')).order_by('-total')[:5]
+
+    # Enfermedades comunes por tipo - TOP 3 con agrupación de empates
+    enfermedades_por_tipo_raw = PacienteEnfermedadComun.objects.values(
+        enfermedad_tipo=F('enfermedad__tipo')
+    ).annotate(total=Count('id')).order_by('-total')
+    
+    # Agrupar empates y tomar top 3
+    enfermedades_por_tipo = []
+    valores_incluidos = set()
+    
+    for item in enfermedades_por_tipo_raw:
+        if len(enfermedades_por_tipo) >= 3:
+            break
+        if item['total'] not in valores_incluidos or len(enfermedades_por_tipo) < 3:
+            enfermedades_por_tipo.append(item)
+            valores_incluidos.add(item['total'])
+
+    # Enfermedades persistentes - TOP 3 con agrupación de empates
+    enfermedades_persistentes_raw = PacienteEnfermedadPersistente.objects.values(
+        enfermedad_nombre=F('enfermedad__nombre')
+    ).annotate(total=Count('id')).order_by('-total')
+    
+    # Agrupar empates y tomar top 3
+    enfermedades_persistentes = []
+    valores_incluidos_persistentes = set()
+    
+    for item in enfermedades_persistentes_raw:
+        if len(enfermedades_persistentes) >= 3:
+            break
+        if item['total'] not in valores_incluidos_persistentes or len(enfermedades_persistentes) < 3:
+            enfermedades_persistentes.append(item)
+            valores_incluidos_persistentes.add(item['total'])
+
+    # Diagnósticos por mes
+    diagnosticos_por_mes = Consulta.objects.filter(
+        diagnostico__isnull=False,
+        fecha__gte=ultimo_anio
+    ).annotate(
+        mes=TruncMonth('fecha')
+    ).values('mes').annotate(total=Count('id')).order_by('mes')
+
+    # Tratamientos - TOP 3 con agrupación de empates
+    medicamentos_mas_usados_raw = TratamientoActual.objects.values(
+        medicamento_nombre=F('medicamento__nombre_comercial')
+    ).annotate(total=Count('id')).order_by('-total')
+    
+    # Agrupar empates y tomar top 3
+    medicamentos_mas_usados = []
+    valores_incluidos_medicamentos = set()
+    
+    for item in medicamentos_mas_usados_raw:
+        if len(medicamentos_mas_usados) >= 3:
+            break
+        if item['total'] not in valores_incluidos_medicamentos or len(medicamentos_mas_usados) < 3:
+            medicamentos_mas_usados.append(item)
+            valores_incluidos_medicamentos.add(item['total'])
+
+    tratamientos_estado = TratamientoActual.objects.aggregate(
+        activos=Count('id', filter=Q(finalizado=False)),
+        finalizados=Count('id', filter=Q(finalizado=True))
+    )
+
+    duracion_promedio = TratamientoActual.objects.exclude(
+        fecha_fin__isnull=True
+    ).annotate(
+        duracion=F('fecha_fin') - F('fecha_inicio')
+    ).aggregate(promedio=Avg('duracion'))
+
+    # Vacunas - TOP 3 con agrupación de empates
+    vacunas_mas_aplicadas_raw = RegistroVacuna.objects.values(
+        vacuna_nombre=F('vacuna__nombre')
+    ).annotate(total=Count('id')).order_by('-total')
+    
+    # Agrupar empates y tomar top 3
+    vacunas_mas_aplicadas = []
+    valores_incluidos_vacunas = set()
+    
+    for item in vacunas_mas_aplicadas_raw:
+        if len(vacunas_mas_aplicadas) >= 3:
+            break
+        if item['total'] not in valores_incluidos_vacunas or len(vacunas_mas_aplicadas) < 3:
+            vacunas_mas_aplicadas.append(item)
+            valores_incluidos_vacunas.add(item['total'])
+
+    # Alergias - Ya es TOP 3
+    top_alergias = PacienteAlergia.objects.filter(
+        aprobado=True
+    ).values(
+        alergia_nombre=F('alergia__nombre')
+    ).annotate(total=Count('id')).order_by('-total')[:3]
+
+    # Pacientes sin consulta en últimos 6 meses
+    pacientes_con_consulta = Consulta.objects.filter(
+        fecha__gte=hace_6_meses
+    ).values_list('paciente_id', flat=True)
+
+    sin_consulta = pacientes.exclude(id_paciente__in=pacientes_con_consulta).count()
+
+    return Response({
+        'total_pacientes': total_pacientes,
+        'grupo_edades': {
+            'bebes': bebes,
+            'niños': niños,
+            'jóvenes': jovenes,
+            'adultos': adultos,
+            'adultos_mayores': mayores,
+        },
+        'sexo': {
+            'masculino': masculino,
+            'femenino': femenino,
+            'otro': otro
+        },
+        'nacionalidad': {
+            'venezolano': venezolano,
+            'extranjero': extranjero
+        },
+        'nuevos_por_mes': list(nuevos_por_mes),
+        'consultas_por_mes': list(consultas_por_mes),
+        'consultas_por_dia_top3': consultas_por_dia,  # Más explicativo
+        'enfermedades_comunes_top5': list(top_enfermedades_comunes),
+        'enfermedades_comunes_por_tipo_top3': enfermedades_por_tipo,  # Top 3 con agrupación
+        'enfermedades_persistentes_top3': enfermedades_persistentes,  # Top 3 con agrupación
+        'diagnosticos_por_mes': list(diagnosticos_por_mes),
+        'medicamentos_top3': medicamentos_mas_usados,  # Top 3 con agrupación
+        'tratamientos_estado': tratamientos_estado,
+        'duracion_promedio_tratamiento': duracion_promedio['promedio'],
+        'vacunas_top3': vacunas_mas_aplicadas,  # Top 3 con agrupación
+        'alergias_top3': list(top_alergias),
+        'pacientes_sin_consulta_reciente': sin_consulta
+    })
+
 from .models import Paciente
 from .serializers import HistoriaClinicaPacienteSerializer  # tu serializer completo
 
