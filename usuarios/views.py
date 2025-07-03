@@ -1,6 +1,6 @@
 from rest_framework import viewsets, serializers, status
 from .models import Alergia, Doctor, DoctorCentro, EnfermedadComun, EnfermedadPersistente, EspecialidadDoctor, ExamenLabImagenologia, ExamenLaboratorio, GrupoSanguineo, MedicamentoCronico, Paciente, PacienteAlergia, PacienteEnfermedadPersistente, PacienteMedicamentoCronico, PerfilBebe, RegistroVacuna, Usuario, Vacuna
-from .serializers import AlergiaSerializer, DoctorPacienteDetalleSerializer, DoctorSerializer, DocumentoEscaneadoSerializer, EnfermedadComunSerializer, EnfermedadPersistenteSerializer, ExamenImagenologiaSerializer, ExamenLaboratorioSerializer, GrupoSanguineoSerializer, HistoriaClinicaPacienteSerializer, MedicamentoCronicoSerializer, PacienteAlergiaSerializer, PacienteEnfermedadComunSerializer, PacienteEnfermedadPersistenteSerializer, PacienteMedicamentoCronicoSerializer, PacienteSerializer, PerfilBebeRegistroSerializer, RegistroVacunaSerializer, UsuarioSerializer, VacunaSerializer
+from .serializers import AlergiaSerializer, DoctorPacienteDetalleSerializer, DoctorSerializer, DocumentoEscaneadoSerializer, EnfermedadComunSerializer, EnfermedadPersistenteSerializer, ExamenImagenologiaSerializer, ExamenLaboratorioSerializer, GrupoSanguineoSerializer, HistoriaClinicaPacienteSerializer, MedicamentoCronicoSerializer, Paciente1Serializer, PacienteAlergiaSerializer, PacienteEnfermedadComunSerializer, PacienteEnfermedadPersistenteSerializer, PacienteMedicamentoCronicoSerializer, PacienteSerializer, PerfilBebeRegistroSerializer, RegistroVacunaSerializer, UsuarioSerializer, VacunaSerializer
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django.contrib.auth import authenticate
@@ -121,6 +121,11 @@ class CustomTokenObtainPairView(TokenObtainPairView):
             "id_rol": user.id_rol.id_rol, 
         }, status=status.HTTP_200_OK)
 
+class ListaPacientes1View(APIView):
+    def get(self, request):
+        pacientes = Paciente.objects.all()
+        serializer = Paciente1Serializer(pacientes, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 # Vista para refrescar el token JWT
 class CustomTokenRefreshView(TokenRefreshView):
     permission_classes = [AllowAny]  # Permitir que cualquier usuario acceda para pruebas
@@ -1828,7 +1833,6 @@ def estadisticas_centro_medico(request):
         'alergias_top3': list(top_alergias),
         'pacientes_sin_consulta_reciente': sin_consulta
     })
-
 from .models import Paciente
 from .serializers import HistoriaClinicaPacienteSerializer  # tu serializer completo
 
@@ -2425,4 +2429,64 @@ class DescargarHistoriaClinicaWord(APIView):
         doc.save(filepath)
 
 
+@api_view(['GET']) # Asegúrate de importar correctamente tu modelo
 
+def pacientes_sin_consulta_reciente(request):
+    hoy = now().date()
+    hace_6_meses = hoy - timedelta(days=180)
+
+    resultado = []
+
+    for paciente in Paciente.objects.all():
+        consultas = paciente.consultas.all().order_by('-fecha')
+
+        if not consultas.exists():
+            # Paciente sin consultas
+            if paciente.id_usuario:
+                resultado.append({
+                    'id': paciente.id_paciente,
+                    'nombre': paciente.id_usuario.nombre,
+                    'apellido': paciente.id_usuario.apellido,
+                    'cedula': paciente.id_usuario.cedula,
+                    'telefono': paciente.id_usuario.telefono,
+                    'estado': 'nunca ha tenido consulta',
+                    'tipo': 'adulto'
+                })
+            elif paciente.perfil_bebe:
+                resultado.append({
+                    'id': paciente.id_paciente,
+                    'nombre': paciente.perfil_bebe.nombre,
+                    'apellido': paciente.perfil_bebe.apellido,
+                    'estado': 'nunca ha tenido consulta',
+                    'tipo': 'bebé'
+                })
+
+        else:
+            ultima_fecha = consultas.first().fecha.date()
+            if ultima_fecha < hace_6_meses:
+                # Última consulta fue hace más de 6 meses
+                if paciente.id_usuario:
+                    resultado.append({
+                        'id': paciente.id_paciente,
+                        'nombre': paciente.id_usuario.nombre,
+                        'apellido': paciente.id_usuario.apellido,
+                        'cedula': paciente.id_usuario.cedula,
+                        'telefono': paciente.id_usuario.telefono,
+                        'ultima_consulta': ultima_fecha.isoformat(),
+                        'estado': 'más de 6 meses sin consulta',
+                        'tipo': 'adulto'
+                    })
+                elif paciente.perfil_bebe:
+                    resultado.append({
+                        'id': paciente.id_paciente,
+                        'nombre': paciente.perfil_bebe.nombre,
+                        'apellido': paciente.perfil_bebe.apellido,
+                        'ultima_consulta': ultima_fecha.isoformat(),
+                        'estado': 'más de 6 meses sin consulta',
+                        'tipo': 'bebé'
+                    })
+
+    return Response({
+        'total': len(resultado),
+        'pacientes': resultado
+    })

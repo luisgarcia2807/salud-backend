@@ -165,7 +165,45 @@ class PacienteSerializer(serializers.ModelSerializer):
         fields = ['id_paciente', 'id_usuario','perfil_bebe', 'id_sangre']
 
 # serializers.py
+class UsuarioPaciente1Serializer(serializers.ModelSerializer):
+    class Meta:
+        model = Usuario
+        fields = [
+            'id_usuario',
+            'nombre',
+            'apellido',
+            'cedula',
+            'email',
+            'telefono',
+            'fecha_nacimiento',
+            'sexo',
+            'nacionalidad'
+        ]
+class PerfilBebePaciente1Serializer(serializers.ModelSerializer):
+   
 
+    class Meta:
+        model = PerfilBebe
+        fields = [
+            'nombre',
+            'apellido',
+            'fecha_nacimiento',
+            'sexo'
+        ]
+class Paciente1Serializer(serializers.ModelSerializer):
+    id_usuario = UsuarioPaciente1Serializer(read_only=True)
+    perfil_bebe = PerfilBebePaciente1Serializer(read_only=True)
+    id_sangre = GrupoSanguineoSerializer(read_only=True)
+
+    class Meta:
+        model = Paciente
+        fields = [
+            'id_paciente',
+            'id_usuario',
+            'perfil_bebe',
+            'id_sangre'
+           
+        ]
 
 class AlergiaSerializer(serializers.ModelSerializer):
     class Meta:
@@ -264,21 +302,22 @@ class UsuarioNombreApellidoCedulaSerializer(serializers.ModelSerializer):
         fields = ['id_usuario','nombre', 'apellido', 'cedula']
 
 class DoctorSerializer(serializers.ModelSerializer):
-    # Usamos el nuevo serializador para Usuario con los campos deseados
     id_usuario = UsuarioNombreApellidoCedulaSerializer(read_only=True)
-
-    # Comprobamos si el doctor está aceptado en algún centro médico
     activo = serializers.SerializerMethodField()
+    especialidades = serializers.SerializerMethodField()  # 👈 Agregado
 
     class Meta:
         model = Doctor
-        fields = ['id_doctor', 'id_usuario', 'numero_licencia', 'activo']
+        fields = ['id_doctor', 'id_usuario', 'numero_licencia', 'activo', 'especialidades']
 
     def get_activo(self, obj):
-        # Verifica si el doctor ha sido aceptado por algún centro médico
         return DoctorCentro.objects.filter(id_doctor=obj, aceptado_por_centromedico=True).exists()
 
-    
+    def get_especialidades(self, obj):
+        especialidades = Especialidad.objects.filter(especialidaddoctor__id_doctor=obj)
+        return EspecialidadSerializer(especialidades, many=True).data
+
+
 class DoctorCentroSerializer(serializers.ModelSerializer):
     class Meta:
         model = DoctorCentro
