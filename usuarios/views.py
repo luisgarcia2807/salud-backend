@@ -117,7 +117,8 @@ class CustomTokenObtainPairView(TokenObtainPairView):
             'id_usuario': user.id_usuario,
             'email': user.email,
             'nombre': user.nombre,
-            'apellido': user.apellido
+            'apellido': user.apellido,
+            "id_rol": user.id_rol.id_rol, 
         }, status=status.HTTP_200_OK)
 
 # Vista para refrescar el token JWT
