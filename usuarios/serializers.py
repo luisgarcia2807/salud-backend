@@ -876,18 +876,30 @@ class HistoriaClinicaPacienteSerializer(serializers.ModelSerializer):
         return "No especificado"
     
     def get_telefono(self, obj):
+    # Si el paciente es un usuario adulto, devolver su teléfono
         if obj.id_usuario and obj.id_usuario.telefono:
             return obj.id_usuario.telefono
-        return "Perfil BB"
+    # Si el paciente es un bebé, devolver el teléfono del responsable
+        elif obj.perfil_bebe and obj.perfil_bebe.responsable and obj.perfil_bebe.responsable.telefono:
+            return obj.perfil_bebe.responsable.telefono
+        return "Sin teléfono"
 
     def get_nacionalidad(self, obj):
+    # Si el paciente es un usuario adulto, devolver su nacionalidad
         if obj.id_usuario:
             nacionalidad = obj.id_usuario.nacionalidad
             if nacionalidad == 'V':
                 return "Venezolano"
             elif nacionalidad == 'E':
                 return "Extranjero"
-        return "Perfil BB"
+    # Si el paciente es un bebé, devolver la nacionalidad del responsable
+        elif obj.perfil_bebe and obj.perfil_bebe.responsable:
+            nacionalidad = obj.perfil_bebe.responsable.nacionalidad
+            if nacionalidad == 'V':
+                return "Venezolano"
+            elif nacionalidad == 'E':
+                return "Extranjero"
+        return "Sin nacionalidad"
 
 
 
