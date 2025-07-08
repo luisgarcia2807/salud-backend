@@ -748,6 +748,30 @@ class TratamientoActualHCSerializer(serializers.ModelSerializer):
 
         return f"{nombre}\n{via_tipo}\n{periodo}\n{frecuencia}\n{descripcion}".strip()
 
+class PacienteEnfermedadComunHistoriaClinicaSerializer(serializers.ModelSerializer):
+    enfermedad_nombre = serializers.CharField(source='enfermedad.nombre', read_only=True)
+    estado = serializers.SerializerMethodField()
+    duracion = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = PacienteEnfermedadComun
+        fields = [
+            'id', 'enfermedad_nombre', 'fecha_diagnostico', 'fecha_recuperacion', 
+            'observacion', 'estado', 'duracion'
+        ]
+    
+    def get_estado(self, obj):
+        return "Activa" if obj.esta_activa() else "Recuperada"
+    
+    def get_duracion(self, obj):
+        if obj.fecha_recuperacion:
+            duracion = (obj.fecha_recuperacion - obj.fecha_diagnostico).days
+            return f"{duracion} días"
+        else:
+            from datetime import date
+            duracion = (date.today() - obj.fecha_diagnostico).days
+            return f"{duracion} días (en curso)"
+        
 class HistoriaClinicaPacienteSerializer(serializers.ModelSerializer):
     nombre = serializers.SerializerMethodField()
     apellido = serializers.SerializerMethodField()
@@ -766,6 +790,7 @@ class HistoriaClinicaPacienteSerializer(serializers.ModelSerializer):
     alergias = serializers.SerializerMethodField()
     vacunas = serializers.SerializerMethodField()
     enfermedades_persistentes = serializers.SerializerMethodField()
+    enfermedades_comunes = serializers.SerializerMethodField() 
     medicamentos_cronicos = serializers.SerializerMethodField()
     examenes_laboratorio = serializers.SerializerMethodField()
     examenes_imagenologia = serializers.SerializerMethodField()
@@ -775,7 +800,7 @@ class HistoriaClinicaPacienteSerializer(serializers.ModelSerializer):
         model = Paciente
         fields = [
             'id_paciente', 'nombre', 'apellido',  'cedula','tipo_sangre','edad', 'sexo', 'telefono', 'nacionalidad',
-             'signos_vitales', 'tratamientos_actuales',
+             'signos_vitales', 'tratamientos_actuales','enfermedades_comunes',
             'alergias', 'vacunas','enfermedades_persistentes', 'medicamentos_cronicos',
             'examenes_laboratorio', 'examenes_imagenologia', 'consultas'
         ]
@@ -803,6 +828,17 @@ class HistoriaClinicaPacienteSerializer(serializers.ModelSerializer):
         from .serializers import PacienteAlergiaHistoriaClinicaSerializer
         alergias = obj.alergias.filter(aprobado=True)
         return PacienteAlergiaHistoriaClinicaSerializer(alergias, many=True).data
+    
+    def get_enfermedades_comunes(self, obj):
+        # Obtener solo las enfermedades comunes ACTIVAS (sin fecha de recuperación)
+        # Ordenadas por fecha de diagnóstico más reciente
+        enfermedades = obj.enfermedades_comunes.filter(
+            aprobado=True, 
+            fecha_recuperacion__isnull=True
+        ).order_by('-fecha_diagnostico')
+        return PacienteEnfermedadComunHistoriaClinicaSerializer(enfermedades, many=True).data
+    
+    
 
     def get_vacunas(self, obj):
         from .serializers import RegistroVacunaHistoriaClinicaSerializer

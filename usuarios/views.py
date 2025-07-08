@@ -1972,7 +1972,7 @@ class DescargarHistoriaClinicaWord(APIView):
             self.add_field_with_label(p_info, "Síntomas", consulta.get('sintomas', 'No registrado'))
             p_info.paragraph_format.space_after = Pt(8)
             
-            # Signos Vitales de la consulta
+# Signos Vitales de la consulta
             signos_vitales = consulta.get('signos_vitales', [])
             p_signos = doc.add_paragraph()
             run_signos = p_signos.add_run("Signos Vitales:")
@@ -1988,9 +1988,58 @@ class DescargarHistoriaClinicaWord(APIView):
                 run_no_signos.font.size = Pt(12)
             else:
                 for signo in signos_vitales:
-                    run_signo = p_signos.add_run(f"   {signo if signo else 'No registrado'}\n")
-                    run_signo.font.name = "Times New Roman"
-                    run_signo.font.size = Pt(12)
+                    # Extraer y formatear la información de signos vitales
+                    if isinstance(signo, dict):
+                        # Crear líneas organizadas de signos vitales
+                        lineas_signos = []
+                        
+                        # Línea 1: Peso, Altura, IMC
+                        peso = signo.get('peso', 'N/A')
+                        altura = signo.get('altura', 'N/A')
+                        imc = signo.get('imc', 'N/A')
+                        lineas_signos.append(f"   Peso: {peso} kg | Altura: {altura} m | IMC: {imc}")
+                        
+                        # Línea 2: Presión arterial, Frecuencia cardíaca
+                        presion_sys = signo.get('presion_sistolica', 'N/A')
+                        presion_dia = signo.get('presion_diastolica', 'N/A')
+                        freq_card = signo.get('frecuencia_cardiaca', 'N/A')
+                        lineas_signos.append(f"   Presión arterial: {presion_sys}/{presion_dia} mmHg | Frecuencia cardíaca: {freq_card} lpm")
+                        
+                        # Línea 3: Temperatura, Saturación O2, Glucosa
+                        temperatura = signo.get('temperatura', 'N/A')
+                        spo2 = signo.get('spo2', 'N/A')
+                        glucosa = signo.get('glucosa', 'N/A')
+                        lineas_signos.append(f"   Temperatura: {temperatura} °C | Saturación O₂: {spo2}% | Glucosa: {glucosa} mg/dL")
+                        
+                        # Línea 4: Frecuencia respiratoria y fecha
+                        freq_resp = signo.get('frecuencia_respiratoria', 'N/A')
+                        fecha_signo = self.format_date(signo.get('fecha', ''))
+                        lineas_signos.append(f"   Frecuencia respiratoria: {freq_resp} rpm | Fecha: {fecha_signo}")
+                        
+                        # Agregar las líneas al párrafo
+                        for linea in lineas_signos:
+                            run_signo = p_signos.add_run(f"{linea}\n")
+                            run_signo.font.name = "Times New Roman"
+                            run_signo.font.size = Pt(12)
+                        
+                        # Observaciones limpias (sin caracteres especiales)
+                        observaciones = signo.get('observaciones', '')
+                        if observaciones and observaciones.strip():
+                            # Limpiar caracteres especiales y emojis
+                            observaciones_limpias = observaciones.replace('🔍', '').replace('💡', '').replace('🎯', '')
+                            observaciones_limpias = ''.join(char for char in observaciones_limpias if ord(char) < 128)
+                            observaciones_limpias = observaciones_limpias.strip()
+                            
+                            if observaciones_limpias:
+                                run_obs = p_signos.add_run(f"   Observaciones: {observaciones_limpias}\n")
+                                run_obs.font.name = "Times New Roman"
+                                run_obs.font.size = Pt(12)
+                    else:
+                        # Si es un string simple, mostrarlo como antes
+                        run_signo = p_signos.add_run(f"   {signo if signo else 'No registrado'}\n")
+                        run_signo.font.name = "Times New Roman"
+                        run_signo.font.size = Pt(12)
+                        
             p_signos.paragraph_format.space_after = Pt(8)
             
             # Examen Funcional
@@ -2219,6 +2268,61 @@ class DescargarHistoriaClinicaWord(APIView):
         else:
             p_no_trat = doc.add_paragraph("No se registran tratamientos actuales.")
             self.set_font_style(p_no_trat)
+# NUEVA PÁGINA - Enfermedades Comunes
+        self.add_page_break(doc)
+        heading_comunes = doc.add_heading('Enfermedades Virales', level=1)
+        self.set_font_style(heading_comunes, "Times New Roman", 14)
+        enfermedades_comunes = data.get('enfermedades_comunes', [])
+        if enfermedades_comunes:
+            for e in enfermedades_comunes:
+                nombre = e.get('enfermedad_nombre', 'No registrado')
+                fecha_diagnostico = e.get('fecha_diagnostico', '')
+                fecha_recuperacion = e.get('fecha_recuperacion', '')
+                observacion = e.get('observacion', '')
+                estado = e.get('estado', 'No registrado')
+                duracion = e.get('duracion', 'No registrado')
+
+                p = doc.add_paragraph()
+                # Nombre de la enfermedad en negrita
+                run = p.add_run(f"{nombre}\n")
+                run.bold = True
+                run.font.name = "Times New Roman"
+                run.font.size = Pt(12)
+
+                # Estado y duración
+                run2 = p.add_run(f"Estado: {estado} – Duración: {duracion}\n")
+                run2.font.name = "Times New Roman"
+                run2.font.size = Pt(12)
+
+                # Fecha de diagnóstico
+                run3 = p.add_run(f"Fecha de diagnóstico: {self.format_date(fecha_diagnostico)}\n")
+                run3.font.name = "Times New Roman"
+                run3.font.size = Pt(12)
+
+                # Fecha de recuperación (si existe)
+                if fecha_recuperacion:
+                    run4 = p.add_run(f"Fecha de recuperación: {self.format_date(fecha_recuperacion)}\n")
+                    run4.font.name = "Times New Roman"
+                    run4.font.size = Pt(12)
+                else:
+                    run4 = p.add_run(f"Fecha de recuperación: En curso\n")
+                    run4.font.name = "Times New Roman"
+                    run4.font.size = Pt(12)
+
+                # Observaciones
+                if observacion and observacion.strip():
+                    run5 = p.add_run(f"Observación: {observacion}\n")
+                    run5.font.name = "Times New Roman"
+                    run5.font.size = Pt(12)
+                else:
+                    run5 = p.add_run(f"Observación: No registrado\n")
+                    run5.font.name = "Times New Roman"
+                    run5.font.size = Pt(12)
+
+                p.paragraph_format.space_after = Pt(8)
+        else:
+            p_no_comunes = doc.add_paragraph("No se registran enfermedades comunes.")
+            self.set_font_style(p_no_comunes)
 
         # NUEVA PÁGINA - Alergias conocidas
         self.add_page_break(doc)
