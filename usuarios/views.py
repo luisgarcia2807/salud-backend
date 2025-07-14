@@ -685,8 +685,10 @@ import numpy as np
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 
+
 @csrf_exempt
-def procesar_documento(request):
+def procesar_documento_medico(request):
+    """Vista optimizada para documentos médicos - fondo blanco y texto más visible"""
     if request.method != 'POST':
         return HttpResponse("Método no permitido", status=405)
     
@@ -702,10 +704,10 @@ def procesar_documento(request):
     if image is None:
         return HttpResponse("Imagen inválida o corrupta", status=400)
     
-    # Redimensionar si la imagen es muy grande para mejor procesamiento
+    # Redimensionar para velocidad (tamaño optimizado)
     height, width = image.shape[:2]
-    if width > 2000:
-        scale = 2000 / width
+    if width > 1500:
+        scale = 1500 / width
         new_width = int(width * scale)
         new_height = int(height * scale)
         image = cv2.resize(image, (new_width, new_height), interpolation=cv2.INTER_AREA)
@@ -713,50 +715,31 @@ def procesar_documento(request):
     # Convertir a escala de grises
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     
-    # Aplicar filtro bilateral para suavizar preservando bordes
-    bilateral = cv2.bilateralFilter(gray, 9, 75, 75)
+    # Filtro bilateral para suavizar manteniendo bordes del texto
+    bilateral = cv2.bilateralFilter(gray, 7, 50, 50)
     
-    # Mejorar contraste con CLAHE más agresivo
-    clahe = cv2.createCLAHE(clipLimit=4.0, tileGridSize=(8, 8))
+    # CLAHE para mejorar contraste local (optimizado para texto médico)
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
     enhanced = clahe.apply(bilateral)
     
-    # Usar umbralización adaptativa para mejor manejo de iluminación desigual
-    adaptive_thresh = cv2.adaptiveThreshold(
+    # Umbralización adaptativa para fondo blanco y texto negro
+    binary = cv2.adaptiveThreshold(
         enhanced, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
-        cv2.THRESH_BINARY, 11, 2
+        cv2.THRESH_BINARY, 13, 4
     )
     
-    # Aplicar operaciones morfológicas para limpiar y reforzar el texto
-    # Kernel más pequeño para preservar detalles
-    kernel_clean = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (1, 1))
-    cleaned = cv2.morphologyEx(adaptive_thresh, cv2.MORPH_CLOSE, kernel_clean)
+    # Limpieza rápida del ruido
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (1, 1))
+    cleaned = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
     
-    # Reducir ruido con filtro mediana
-    denoised = cv2.medianBlur(cleaned, 3)
+    # Reducir ruido con filtro mediano
+    result = cv2.medianBlur(cleaned, 3)
     
-    # Operación de apertura para separar caracteres unidos
-    kernel_open = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (1, 1))
-    opened = cv2.morphologyEx(denoised, cv2.MORPH_OPEN, kernel_open)
-    
-    # Dilatar muy ligeramente para reforzar caracteres débiles
-    kernel_dilate = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (1, 1))
-    dilated = cv2.dilate(opened, kernel_dilate, iterations=1)
-    
-    # Sharpening para mejorar definición de bordes
-    kernel_sharpen = np.array([[-1, -1, -1],
-                              [-1,  9, -1],
-                              [-1, -1, -1]])
-    sharpened = cv2.filter2D(dilated, -1, kernel_sharpen)
-    
-    # Asegurar que el resultado esté en el rango correcto
-    result = np.clip(sharpened, 0, 255).astype(np.uint8)
-    
-    # Codificar con mayor calidad
-    encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 95]
+    # Codificar con buena calidad
+    encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 90]
     _, jpeg = cv2.imencode('.jpg', result, encode_param)
     
     return HttpResponse(jpeg.tobytes(), content_type="image/jpeg")
-
 from rest_framework.decorators import api_view
 
 
