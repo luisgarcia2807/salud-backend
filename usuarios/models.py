@@ -55,11 +55,7 @@ class Usuario(AbstractUser):
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username', 'telefono']
 
-    def save(self, *args, **kwargs):
-        if not self.pk and self.password:
-            self.set_password(self.password)
-        super().save(*args, **kwargs)
-
+    
     def __str__(self):
         return f"{self.nombre} {self.apellido}"
  

@@ -67,11 +67,6 @@ class UsuarioViewSet(viewsets.ModelViewSet):
     serializer_class = UsuarioSerializer  # Usa el serializador de usuarios
     permission_classes = [AllowAny]  # Permite que cualquiera acceda a este ViewSet (solo para pruebas)
     
-    def create(self, request, *args, **kwargs):
-        password = request.data.get('password')  # Obtener la contraseña en texto plano
-
-        # Si necesitas lógica adicional antes de crear, como encriptar la contraseña
-        return super().create(request, *args, **kwargs)
 
 # Vista personalizada para obtener el token JWT
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -694,44 +689,73 @@ from django.views.decorators.csrf import csrf_exempt
 def procesar_documento(request):
     if request.method != 'POST':
         return HttpResponse("Método no permitido", status=405)
-
+    
     if 'imagen' not in request.FILES:
         return HttpResponse("No se envió imagen", status=400)
-
+    
     file = request.FILES['imagen']
     image_bytes = file.read()
-
+    
     np_arr = np.frombuffer(image_bytes, np.uint8)
     image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-
+    
     if image is None:
         return HttpResponse("Imagen inválida o corrupta", status=400)
-
+    
+    # Redimensionar si la imagen es muy grande para mejor procesamiento
+    height, width = image.shape[:2]
+    if width > 2000:
+        scale = 2000 / width
+        new_width = int(width * scale)
+        new_height = int(height * scale)
+        image = cv2.resize(image, (new_width, new_height), interpolation=cv2.INTER_AREA)
+    
+    # Convertir a escala de grises
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-    # Aplicar CLAHE para mejorar contraste local y evitar pérdida de detalles
-    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
-    enhanced = clahe.apply(gray)
-
-    # Umbral binario con un valor bajo para atrapar detalles finos
-    _, thresh = cv2.threshold(enhanced, 90, 255, cv2.THRESH_BINARY)
-
-    # Invertir para que letras sean negras y fondo blanco
-    thresh = cv2.bitwise_not(thresh)
-
-    # Aplicar filtro mediana para reducir ruido manteniendo bordes
-    denoised = cv2.medianBlur(thresh, 3)
-
-    # Dilatar suavemente para reforzar letras sin perder detalle
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2,2))
-    dilated = cv2.dilate(denoised, kernel, iterations=1)
-
-    # Invertir nuevamente para que letras negras y fondo blanco
-    result = cv2.bitwise_not(dilated)
-
-    _, jpeg = cv2.imencode('.jpg', result)
+    
+    # Aplicar filtro bilateral para suavizar preservando bordes
+    bilateral = cv2.bilateralFilter(gray, 9, 75, 75)
+    
+    # Mejorar contraste con CLAHE más agresivo
+    clahe = cv2.createCLAHE(clipLimit=4.0, tileGridSize=(8, 8))
+    enhanced = clahe.apply(bilateral)
+    
+    # Usar umbralización adaptativa para mejor manejo de iluminación desigual
+    adaptive_thresh = cv2.adaptiveThreshold(
+        enhanced, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+        cv2.THRESH_BINARY, 11, 2
+    )
+    
+    # Aplicar operaciones morfológicas para limpiar y reforzar el texto
+    # Kernel más pequeño para preservar detalles
+    kernel_clean = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (1, 1))
+    cleaned = cv2.morphologyEx(adaptive_thresh, cv2.MORPH_CLOSE, kernel_clean)
+    
+    # Reducir ruido con filtro mediana
+    denoised = cv2.medianBlur(cleaned, 3)
+    
+    # Operación de apertura para separar caracteres unidos
+    kernel_open = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (1, 1))
+    opened = cv2.morphologyEx(denoised, cv2.MORPH_OPEN, kernel_open)
+    
+    # Dilatar muy ligeramente para reforzar caracteres débiles
+    kernel_dilate = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (1, 1))
+    dilated = cv2.dilate(opened, kernel_dilate, iterations=1)
+    
+    # Sharpening para mejorar definición de bordes
+    kernel_sharpen = np.array([[-1, -1, -1],
+                              [-1,  9, -1],
+                              [-1, -1, -1]])
+    sharpened = cv2.filter2D(dilated, -1, kernel_sharpen)
+    
+    # Asegurar que el resultado esté en el rango correcto
+    result = np.clip(sharpened, 0, 255).astype(np.uint8)
+    
+    # Codificar con mayor calidad
+    encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 95]
+    _, jpeg = cv2.imencode('.jpg', result, encode_param)
+    
     return HttpResponse(jpeg.tobytes(), content_type="image/jpeg")
-
 
 from rest_framework.decorators import api_view
 
