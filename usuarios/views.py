@@ -687,7 +687,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 
 @csrf_exempt
-def procesar_documento_medico(request):
+def procesar_documento(request):
     """Vista optimizada para documentos médicos - fondo blanco y texto más visible"""
     if request.method != 'POST':
         return HttpResponse("Método no permitido", status=405)
